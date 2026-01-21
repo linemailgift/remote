@@ -2,8 +2,10 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Smart Remote Deck</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Smart Remote Deck for Mac</title>
     
     <!-- 必要なライブラリをCDNから読み込み -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -13,29 +15,37 @@
 
     <style>
         body {
-            background-color: #0f172a;
+            background-color: #000000;
             color: white;
             overflow: hidden; /* スクロール防止 */
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
         /* タッチ操作の最適化 */
         .touch-manipulation {
             touch-action: manipulation;
             user-select: none;
             -webkit-user-select: none;
+            padding-bottom: env(safe-area-inset-bottom);
         }
         .btn-active:active {
-            transform: scale(0.95);
-            transition: transform 0.05s;
+            transform: scale(0.96);
+            transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        /* ネオン効果 */
+        /* ネオン効果 - Mac風に少し洗練させる */
         .neon-text {
-            text-shadow: 0 0 5px rgba(56, 189, 248, 0.5);
+            text-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
         }
         .glass-panel {
-            background: rgba(30, 41, 59, 0.7);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(28, 28, 30, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .glass-panel-bottom {
+            background: rgba(28, 28, 30, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
         }
         /* 編集モード時の振動アニメーション */
         @keyframes shake {
@@ -45,13 +55,12 @@
             100% { transform: rotate(0deg); }
         }
         .editing-shake {
-            animation: shake 0.3s infinite;
+            animation: shake 0.25s infinite;
         }
         /* カスタムスクロールバー */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #0f172a; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -105,7 +114,13 @@
             Wifi: (props) => <SvgIcon {...props}><path d="M5 12.55a11 11 0 0 1 14.08 0" /><path d="M1.42 9a16 16 0 0 1 21.16 0" /><path d="M8.53 16.11a6 6 0 0 1 6.95 0" /><line x1="12" y1="20" x2="12.01" y2="20" /></SvgIcon>,
             WifiOff: (props) => <SvgIcon {...props}><line x1="1" y1="1" x2="23" y2="23" /><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" /><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" /><path d="M10.71 5.05A16 16 0 0 1 22.58 9" /><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88" /><path d="M8.53 16.11a6 6 0 0 1 6.95 0" /><line x1="12" y1="20" x2="12.01" y2="20" /></SvgIcon>,
             Check: (props) => <SvgIcon {...props}><polyline points="20 6 9 17 4 12" /></SvgIcon>,
-            Palette: (props) => <SvgIcon {...props}><circle cx="13.5" cy="6.5" r=".5" /><circle cx="17.5" cy="10.5" r=".5" /><circle cx="8.5" cy="7.5" r=".5" /><circle cx="6.5" cy="12.5" r=".5" /><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.093 0-.678.5-1.25 1.25-1.25H16c2.75 0 5-2.25 5-5 0-3.867-4.029-7-9-7Z" /></SvgIcon>
+            Palette: (props) => <SvgIcon {...props}><circle cx="13.5" cy="6.5" r=".5" /><circle cx="17.5" cy="10.5" r=".5" /><circle cx="8.5" cy="7.5" r=".5" /><circle cx="6.5" cy="12.5" r=".5" /><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.093 0-.678.5-1.25 1.25-1.25H16c2.75 0 5-2.25 5-5 0-3.867-4.029-7-9-7Z" /></SvgIcon>,
+            Youtube: (props) => <SvgIcon {...props}><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z" /><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02" /></SvgIcon>,
+            FastForward: (props) => <SvgIcon {...props}><polygon points="13 19 22 12 13 5 13 19" /><polygon points="2 19 11 12 2 5 2 19" /></SvgIcon>,
+            Rewind: (props) => <SvgIcon {...props}><polygon points="11 19 2 12 11 5 11 19" /><polygon points="22 19 13 12 22 5 22 19" /></SvgIcon>,
+            Maximize: (props) => <SvgIcon {...props}><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" /></SvgIcon>,
+            Captions: (props) => <SvgIcon {...props}><rect x="2" y="4" width="20" height="16" rx="2" /><path d="M7 15h4M13 15h4M7 11h2M13 11h2" /></SvgIcon>,
+            Tv: (props) => <SvgIcon {...props}><rect x="2" y="7" width="20" height="15" rx="2" ry="2" /><polyline points="17 2 12 7 7 2" /></SvgIcon>
         };
 
         // アイコンを安全に表示するコンポーネント
@@ -117,72 +132,87 @@
             return <IconComponent size={size} className={className} />;
         };
 
-        // 初期データ設定
+        // 初期データ設定（Mac用に最適化）
         const INITIAL_MODES = {
             productivity: {
                 id: 'productivity',
-                name: '編集・作業',
+                name: 'Editing',
                 icon: 'Command',
                 color: 'text-emerald-400',
                 buttons: [
-                    { id: 'copy', label: 'Copy', sub: 'Ctrl+C', icon: 'Copy', color: 'bg-blue-600' },
-                    { id: 'paste', label: 'Paste', sub: 'Ctrl+V', icon: 'Clipboard', color: 'bg-blue-600' },
-                    { id: 'cut', label: 'Cut', sub: 'Ctrl+X', icon: 'Scissors', color: 'bg-slate-600' },
-                    { id: 'save', label: 'Save', sub: 'Ctrl+S', icon: 'Save', color: 'bg-emerald-600' },
-                    { id: 'undo', label: 'Undo', sub: 'Ctrl+Z', icon: 'Undo', color: 'bg-slate-600' },
-                    { id: 'redo', label: 'Redo', sub: 'Ctrl+Y', icon: 'Redo', color: 'bg-slate-600' },
+                    { id: 'copy', label: 'Copy', sub: 'Cmd+C', icon: 'Copy', color: 'bg-blue-600' },
+                    { id: 'paste', label: 'Paste', sub: 'Cmd+V', icon: 'Clipboard', color: 'bg-blue-600' },
+                    { id: 'cut', label: 'Cut', sub: 'Cmd+X', icon: 'Scissors', color: 'bg-slate-700' },
+                    { id: 'save', label: 'Save', sub: 'Cmd+S', icon: 'Save', color: 'bg-emerald-600' },
+                    { id: 'undo', label: 'Undo', sub: 'Cmd+Z', icon: 'Undo', color: 'bg-slate-700' },
+                    { id: 'redo', label: 'Redo', sub: 'Cmd+Sh+Z', icon: 'Redo', color: 'bg-slate-700' },
+                ]
+            },
+            youtube: {
+                id: 'youtube',
+                name: 'YouTube',
+                icon: 'Youtube',
+                color: 'text-red-500',
+                buttons: [
+                    { id: 'yt_play', label: 'Play/Pause', sub: 'K', icon: 'Play', color: 'bg-red-600' },
+                    { id: 'yt_full', label: 'Fullscreen', sub: 'F', icon: 'Maximize', color: 'bg-slate-700' },
+                    { id: 'yt_rewind', label: '-10s', sub: 'J', icon: 'SkipBack', color: 'bg-slate-700' },
+                    { id: 'yt_forward', label: '+10s', sub: 'L', icon: 'SkipForward', color: 'bg-slate-700' },
+                    { id: 'yt_slow', label: 'Speed -', sub: 'Shift+<', icon: 'Rewind', color: 'bg-slate-700' },
+                    { id: 'yt_fast', label: 'Speed +', sub: 'Shift+>', icon: 'FastForward', color: 'bg-slate-700' },
+                    { id: 'yt_caption', label: 'Captions', sub: 'C', icon: 'Captions', color: 'bg-slate-800' },
+                    { id: 'yt_mute', label: 'Mute', sub: 'M', icon: 'VolumeX', color: 'bg-slate-800' },
                 ]
             },
             browser: {
                 id: 'browser',
-                name: 'Chrome操作',
+                name: 'Browser',
                 icon: 'Chrome',
                 color: 'text-orange-400',
                 buttons: [
-                    { id: 'prev_tab', label: '前のタブ', sub: 'Ctrl+Shift+Tab', icon: 'ArrowLeft', color: 'bg-orange-600' },
-                    { id: 'next_tab', label: '次のタブ', sub: 'Ctrl+Tab', icon: 'ArrowRight', color: 'bg-orange-600' },
-                    { id: 'new_tab', label: '新規タブ', sub: 'Ctrl+T', icon: 'Layout', color: 'bg-slate-600' },
-                    { id: 'close_tab', label: 'タブ閉じる', sub: 'Ctrl+W', icon: 'X', color: 'bg-red-600' },
-                    { id: 'reopen_tab', label: 'タブ復元', sub: 'Ctrl+Sh+T', icon: 'Undo', color: 'bg-slate-600' },
-                    { id: 'focus_bar', label: '検索バー', sub: 'Ctrl+L', icon: 'Search', color: 'bg-slate-600' },
+                    { id: 'prev_tab', label: 'Prev Tab', sub: 'Cmd+Opt+←', icon: 'ArrowLeft', color: 'bg-orange-600' },
+                    { id: 'next_tab', label: 'Next Tab', sub: 'Cmd+Opt+→', icon: 'ArrowRight', color: 'bg-orange-600' },
+                    { id: 'new_tab', label: 'New Tab', sub: 'Cmd+T', icon: 'Layout', color: 'bg-slate-700' },
+                    { id: 'close_tab', label: 'Close Tab', sub: 'Cmd+W', icon: 'X', color: 'bg-red-600' },
+                    { id: 'reopen_tab', label: 'Reopen', sub: 'Cmd+Sh+T', icon: 'Undo', color: 'bg-slate-700' },
+                    { id: 'focus_bar', label: 'URL Bar', sub: 'Cmd+L', icon: 'Search', color: 'bg-slate-700' },
                 ]
             },
-            media: {
-                id: 'media',
-                name: 'メディア',
-                icon: 'Play',
-                color: 'text-pink-400',
+            streaming: {
+                id: 'streaming',
+                name: 'Stream',
+                icon: 'Tv',
+                color: 'text-purple-400',
                 buttons: [
-                    { id: 'play_pause', label: '再生/停止', sub: 'Space', icon: 'Play', color: 'bg-pink-600' },
-                    { id: 'mute', label: 'ミュート', sub: 'M', icon: 'VolumeX', color: 'bg-slate-600' },
-                    { id: 'vol_down', label: '音量 -', sub: '↓', icon: 'Volume2', color: 'bg-slate-600' },
-                    { id: 'vol_up', label: '音量 +', sub: '↑', icon: 'Volume2', color: 'bg-slate-600' },
-                    { id: 'skip_back', label: '-10秒', sub: '←', icon: 'SkipBack', color: 'bg-slate-600' },
-                    { id: 'skip_fwd', label: '+10秒', sub: '→', icon: 'SkipForward', color: 'bg-slate-600' },
+                    { id: 'st_play', label: 'Play/Pause', sub: 'Space', icon: 'Play', color: 'bg-purple-600' },
+                    { id: 'st_full', label: 'Fullscreen', sub: 'F', icon: 'Maximize', color: 'bg-slate-700' },
+                    { id: 'st_back', label: 'Back 10s', sub: '←', icon: 'SkipBack', color: 'bg-slate-700' },
+                    { id: 'st_fwd', label: 'Fwd 10s', sub: '→', icon: 'SkipForward', color: 'bg-slate-700' },
+                    { id: 'st_vol_up', label: 'Vol +', sub: '↑', icon: 'Volume2', color: 'bg-slate-700' },
+                    { id: 'st_vol_down', label: 'Vol -', sub: '↓', icon: 'Volume2', color: 'bg-slate-700' },
                 ]
             },
             system: {
                 id: 'system',
-                name: 'システム',
+                name: 'System',
                 icon: 'Monitor',
                 color: 'text-blue-400',
                 buttons: [
-                    { id: 'task_view', label: 'アプリ切替', sub: 'Alt+Tab', icon: 'Layers', color: 'bg-indigo-600' },
-                    { id: 'desktop', label: 'デスクトップ', sub: 'Win+D', icon: 'Monitor', color: 'bg-indigo-600' },
-                    { id: 'start', label: 'Start', sub: 'Win', icon: 'Grid', color: 'bg-slate-600' },
-                    { id: 'lock', label: 'Lock PC', sub: 'Win+L', icon: 'Command', color: 'bg-red-800' },
+                    { id: 'app_switch', label: 'App Switch', sub: 'Cmd+Tab', icon: 'Layers', color: 'bg-indigo-600' },
+                    { id: 'mission_ctrl', label: 'Mission Ctrl', sub: 'Ctrl+↑', icon: 'Layout', color: 'bg-indigo-600' },
+                    { id: 'spotlight', label: 'Spotlight', sub: 'Cmd+Space', icon: 'Search', color: 'bg-slate-700' },
+                    { id: 'lock', label: 'Lock Mac', sub: 'Ctrl+Cmd+Q', icon: 'Command', color: 'bg-red-800' },
                 ]
             }
         };
 
-        // 利用可能なカラーパレット
+        // 利用可能なカラーパレット (Tailwind Colors)
         const COLOR_PALETTE = [
-            'bg-slate-600',
+            'bg-slate-700',
             'bg-red-600',
             'bg-orange-600',
             'bg-amber-600',
-            'bg-yellow-600',
-            'bg-lime-600',
+            'bg-green-600',
             'bg-emerald-600',
             'bg-teal-600',
             'bg-cyan-600',
@@ -201,7 +231,7 @@
             const [currentMode, setCurrentMode] = useState('productivity');
             const [modes, setModes] = useState(INITIAL_MODES);
             const [isEditing, setIsEditing] = useState(false);
-            const [logs, setLogs] = useState(['システム準備完了...']);
+            const [logs, setLogs] = useState(['System Ready...']);
             const [lastCommand, setLastCommand] = useState(null);
             
             const logsEndRef = useRef(null);
@@ -221,13 +251,13 @@
             const toggleConnection = () => {
                 if (connected) {
                     setConnected(false);
-                    addLog("切断しました");
+                    addLog("Disconnected");
                 } else {
-                    addLog("Bluetoothデバイスを検索中...");
+                    addLog("Searching for Mac...");
                     setTimeout(() => {
                         setConnected(true);
-                        addLog("PC (DESKTOP-X86) に接続しました");
-                    }, 1200);
+                        addLog("Connected to MacBook Pro");
+                    }, 1000);
                 }
             };
 
@@ -249,7 +279,7 @@
                 });
                 
                 if (typeof navigator !== 'undefined' && navigator.vibrate) {
-                    navigator.vibrate([30, 30, 30]);
+                    navigator.vibrate(10); // iPhone Taptic Engineライクな軽い振動
                 }
             };
 
@@ -260,15 +290,15 @@
                 }
 
                 if (!connected) {
-                    addLog("エラー: 未接続です。右上のボタンで接続してください。");
+                    addLog("Error: Not Connected");
                     if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([50, 50, 50]);
                     return;
                 }
 
                 setLastCommand(btn.id);
-                addLog(`送信: ${btn.sub} (${btn.label})`);
+                addLog(`Sent: ${btn.sub} (${btn.label})`);
                 
-                if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(30);
+                if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(20);
                 setTimeout(() => setLastCommand(null), 200);
             };
 
@@ -276,22 +306,22 @@
             const CurrentModeIcon = modes[currentMode].icon;
 
             return (
-                <div className={`touch-manipulation flex flex-col h-screen bg-slate-900 text-slate-100 font-sans transition-colors duration-500 ${isEditing ? 'border-4 border-yellow-500/50 rounded-lg' : ''}`}>
+                <div className={`touch-manipulation flex flex-col h-screen bg-black text-slate-100 font-sans transition-colors duration-500 ${isEditing ? 'border-4 border-yellow-500/50' : ''}`}>
                     {/* Header */}
-                    <header className="flex justify-between items-center p-4 glass-panel z-10 shrink-0">
+                    <header className="flex justify-between items-center p-4 glass-panel z-10 shrink-0 pt-safe-top">
                         <div className="flex items-center gap-2">
-                            <div className={`w-3 h-3 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-                            <h1 className="font-bold text-lg tracking-wider neon-text">
-                                {isEditing ? <span className="text-yellow-400">EDITING...</span> : "REMOTE DECK"}
+                            <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`}></div>
+                            <h1 className="font-semibold text-lg tracking-wide text-white/90">
+                                {isEditing ? <span className="text-yellow-400">EDITING</span> : "REMOTE DECK"}
                             </h1>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-3">
                             <button
                                 onClick={() => setIsEditing(!isEditing)}
                                 className={`p-2 rounded-full transition-all flex items-center justify-center ${
                                     isEditing 
-                                    ? 'bg-yellow-500 text-slate-900 shadow-[0_0_15px_rgba(234,179,8,0.5)]' 
-                                    : 'bg-slate-700 text-slate-400 hover:text-white'
+                                    ? 'bg-yellow-500 text-black shadow-[0_0_15px_rgba(234,179,8,0.5)]' 
+                                    : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
                                 }`}
                             >
                                 <SafeIcon icon={isEditing ? "Check" : "Palette"} size={18} />
@@ -299,10 +329,10 @@
 
                             <button 
                                 onClick={toggleConnection}
-                                className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${
+                                className={`px-4 py-2 rounded-full text-xs font-semibold transition-all flex items-center gap-2 ${
                                     connected 
-                                    ? 'bg-slate-800 text-green-400 border border-green-500/30' 
-                                    : 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.5)] active:bg-blue-700'
+                                    ? 'bg-white/10 text-green-400 border border-green-500/30' 
+                                    : 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)] active:scale-95'
                                 }`}
                             >
                                 <SafeIcon icon={connected ? "Wifi" : "WifiOff"} size={14} />
@@ -312,15 +342,15 @@
                     </header>
 
                     {/* Main Control Area */}
-                    <main className="flex-1 overflow-y-auto p-4 flex flex-col justify-center">
+                    <main className="flex-1 overflow-y-auto p-4 flex flex-col justify-center pb-24">
                         <div className="text-center mb-6">
-                            <span className={`inline-flex items-center gap-2 px-4 py-1 rounded-full bg-slate-800 border border-slate-700 text-sm ${modes[currentMode].color}`}>
-                                <SafeIcon icon={CurrentModeIcon} size={18} />
-                                {modes[currentMode].name} Mode
+                            <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/5 text-sm font-medium ${modes[currentMode].color}`}>
+                                <SafeIcon icon={CurrentModeIcon} size={16} />
+                                {modes[currentMode].name}
                             </span>
                             {isEditing && (
-                                <p className="text-yellow-400 text-xs mt-2 animate-pulse">
-                                    ボタンをタップして色を変更
+                                <p className="text-yellow-400 text-[10px] mt-2 animate-pulse uppercase tracking-wider">
+                                    Tap button to cycle colors
                                 </p>
                             )}
                         </div>
@@ -333,64 +363,69 @@
                                     className={`
                                         btn-active relative group overflow-hidden
                                         ${btn.color} 
-                                        h-28 rounded-2xl flex flex-col items-center justify-center gap-2
-                                        shadow-lg transition-all duration-100
+                                        h-28 rounded-2xl flex flex-col items-center justify-center gap-1.5
+                                        shadow-lg transition-all duration-200
                                         ${lastCommand === btn.id ? 'brightness-125 scale-95' : 'hover:brightness-110'}
-                                        ${isEditing ? 'ring-2 ring-white/50 cursor-pointer' : ''}
+                                        ${isEditing ? 'ring-2 ring-white/50 cursor-pointer editing-shake' : ''}
                                     `}
                                 >
-                                    <div className="text-white drop-shadow-md">
-                                        <SafeIcon icon={btn.icon} size={24} />
+                                    <div className="text-white drop-shadow-md mb-1">
+                                        <SafeIcon icon={btn.icon} size={28} />
                                     </div>
                                     <div className="text-center">
-                                        <div className="font-bold text-lg leading-tight">{btn.label}</div>
-                                        <div className="text-xs text-white/70 font-mono mt-1">{btn.sub}</div>
+                                        <div className="font-bold text-base leading-tight tracking-wide">{btn.label}</div>
+                                        <div className="text-[10px] text-white/60 font-mono mt-0.5 tracking-wider uppercase">{btn.sub}</div>
                                     </div>
                                     
                                     {isEditing && (
-                                        <div className="absolute top-2 right-2 bg-black/30 rounded-full p-1">
-                                            <SafeIcon icon="Palette" size={12} className="text-white/80" />
+                                        <div className="absolute top-2 right-2 bg-black/20 backdrop-blur-sm rounded-full p-1">
+                                            <SafeIcon icon="Palette" size={10} className="text-white/90" />
                                         </div>
                                     )}
 
-                                    <div className="absolute inset-0 bg-white/10 opacity-0 group-active:opacity-100 transition-opacity" />
+                                    {/* グレアエフェクト (Mac風) */}
+                                    <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/0 to-white/10 pointer-events-none" />
                                 </button>
                             ))}
                         </div>
                     </main>
 
+                    {/* Terminal / Log Area (Overlay at bottom) */}
+                    <div className="fixed bottom-[80px] left-0 right-0 px-6 pointer-events-none">
+                         <div className="max-w-md mx-auto">
+                            {logs.slice(-1).map((log, i) => (
+                                <div key={i} className="bg-black/80 backdrop-blur-md text-white/80 px-4 py-2 rounded-lg text-xs font-mono border border-white/10 shadow-xl text-center animate-fade-in">
+                                    > {log}
+                                </div>
+                            ))}
+                         </div>
+                    </div>
+
                     {/* Mode Switcher Footer */}
-                    <nav className="glass-panel p-2 shrink-0">
-                        <div className="flex justify-between items-center max-w-md mx-auto">
+                    <nav className="glass-panel-bottom p-2 shrink-0 pb-safe-bottom fixed bottom-0 w-full z-20">
+                        <div className="flex justify-between items-center max-w-md mx-auto px-2">
                             {Object.values(modes).map((mode) => (
                                 <button
                                     key={mode.id}
                                     onClick={() => setCurrentMode(mode.id)}
                                     className={`
-                                        flex flex-col items-center justify-center p-2 w-full rounded-xl transition-all
-                                        ${currentMode === mode.id ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'}
+                                        flex flex-col items-center justify-center py-2 px-1 w-full rounded-xl transition-all duration-300
+                                        ${currentMode === mode.id ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}
                                     `}
                                 >
-                                    <div className={currentMode === mode.id ? mode.color : ''}>
-                                        <SafeIcon icon={mode.icon} size={18} />
+                                    <div className={`
+                                        mb-1 transition-all duration-300 p-1.5 rounded-full
+                                        ${currentMode === mode.id ? 'bg-white/10 ' + mode.color.replace('text-', 'text-') : ''}
+                                    `}>
+                                        <SafeIcon icon={mode.icon} size={20} />
                                     </div>
-                                    <span className="text-[10px] mt-1 font-medium">{mode.name}</span>
+                                    <span className={`text-[9px] font-medium tracking-wide ${currentMode === mode.id ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
+                                        {mode.name}
+                                    </span>
                                 </button>
                             ))}
                         </div>
                     </nav>
-
-                    {/* Terminal / Log Area */}
-                    <div className="bg-black text-green-500 p-3 font-mono text-xs border-t border-slate-800 h-32 overflow-y-auto shrink-0">
-                        <div className="flex items-center gap-2 mb-2 text-slate-500">
-                            <SafeIcon icon="Terminal" size={12} />
-                            <span>System Log</span>
-                        </div>
-                        {logs.map((log, i) => (
-                            <div key={i} className="mb-1 opacity-80">{'>'} {log}</div>
-                        ))}
-                        <div ref={logsEndRef} />
-                    </div>
                 </div>
             );
         }
