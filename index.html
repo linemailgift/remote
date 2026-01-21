@@ -20,6 +20,7 @@
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, collection, query, where, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
+        // Ensure appId is consistent or fallback to a common one for manual copies (though security rules might block)
         const appIdStr = typeof __app_id !== 'undefined' ? __app_id : 'default-app';
         const authToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
@@ -33,19 +34,24 @@
                 window.fb = {
                     auth, db, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, query, where, getDocs, deleteDoc,
                     appId: appIdStr,
-                    initAuth: () => new Promise((resolve) => {
+                    initAuth: () => new Promise((resolve, reject) => {
                         const unsub = onAuthStateChanged(auth, (user) => {
                             if (user) {
                                 resolve(user);
                                 unsub();
                             } else {
-                                if (authToken) signInWithCustomToken(auth, authToken).catch(console.error);
-                                else signInAnonymously(auth).catch(console.error);
+                                if (authToken) {
+                                    signInWithCustomToken(auth, authToken).catch(e => reject(e));
+                                } else {
+                                    signInAnonymously(auth).catch(e => reject(e));
+                                }
                             }
                         });
                     })
                 };
                 console.log("Firebase initialized");
+            } else {
+                console.warn("Firebase config missing projectId");
             }
         } catch (e) {
             console.error("Firebase init failed:", e);
@@ -106,7 +112,7 @@
 
     <script type="text/babel">
         const { useState, useEffect, useRef, useMemo } = React;
-        const APP_VERSION = "v1.2.0";
+        const APP_VERSION = "v2.1.0"; // 更新バージョン
 
         // --- Icons (SVG) ---
         const SvgIcon = ({ children, size = 24, className = "" }) => (
@@ -232,7 +238,7 @@
 
         // --- Common UI Components ---
         const VersionDisplay = () => (
-            <div className="absolute bottom-3 left-4 text-zinc-600 text-[10px] font-mono z-50">
+            <div className="absolute bottom-4 left-4 text-zinc-500 text-[10px] font-mono z-50 bg-black/50 px-2 py-1 rounded border border-zinc-800">
                 {APP_VERSION}
             </div>
         );
@@ -240,22 +246,22 @@
         const RefreshButton = () => (
             <button 
                 onClick={() => window.location.reload()}
-                className="absolute bottom-3 right-4 p-2 text-zinc-600 hover:text-white transition-colors z-50 rounded-full hover:bg-zinc-800"
-                title="Reload App"
+                className="absolute bottom-4 right-4 flex items-center gap-2 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-full text-xs font-bold transition-all border border-zinc-700 z-50"
             >
-                <SafeIcon icon="Refresh" size={16} />
+                <SafeIcon icon="Refresh" size={12} />
+                UPDATE / RELOAD
             </button>
         );
 
         // --- Screens ---
 
         const DeviceSelectScreen = ({ onSelect }) => (
-            <div className="flex flex-col items-center justify-center h-screen bg-black text-white p-6 animate-fade-in-up">
+            <div className="flex flex-col items-center justify-center h-screen bg-black text-white p-6 animate-fade-in-up relative">
                 <div className="mb-10 text-center">
                     <h1 className="text-3xl font-bold mb-2 neon-text">Smart Remote Deck</h1>
-                    <p className="text-zinc-400">Choose your device role</p>
+                    <p className="text-zinc-400">Select Mode</p>
                 </div>
-                <div className="grid gap-6 w-full max-w-md">
+                <div className="grid gap-6 w-full max-w-md mb-20">
                     <button onClick={() => onSelect('host')} className="flex items-center gap-4 bg-zinc-900 border border-zinc-700 hover:border-blue-500 hover:bg-zinc-800 p-6 rounded-2xl transition-all group">
                         <div className="bg-blue-600/20 p-4 rounded-full group-hover:bg-blue-600/30 transition-colors"><SafeIcon icon="Monitor" size={32} className="text-blue-400" /></div>
                         <div className="text-left"><div className="font-bold text-lg">Mac (受信機)</div><div className="text-sm text-zinc-500">待機・操作を受け付けます</div></div>
@@ -265,6 +271,11 @@
                         <div className="text-left"><div className="font-bold text-lg">iPhone (リモコン)</div><div className="text-sm text-zinc-500">Macを探して操作します</div></div>
                     </button>
                 </div>
+                
+                <div className="absolute top-6 right-6">
+                     <button onClick={() => window.location.reload()} className="bg-zinc-800 p-2 rounded-full text-zinc-400 hover:text-white"><SafeIcon icon="Refresh" size={20} /></button>
+                </div>
+
                 <VersionDisplay />
                 <RefreshButton />
             </div>
@@ -278,20 +289,25 @@
                 let unsubscribe;
                 
                 const initHost = async () => {
-                    if (!window.fb) return;
+                    if (!window.fb) {
+                        setLogs(p => ["Firebase not loaded", ...p]);
+                        return;
+                    }
                     try {
+                        setLogs(p => ["Authenticating...", ...p]);
                         await window.fb.initAuth();
-                        // Generate 3 pairs of 2-digit numbers (e.g., "12 34 56")
+                        
+                        // Generate 3 pairs
                         const c1 = Math.floor(10 + Math.random() * 90);
                         const c2 = Math.floor(10 + Math.random() * 90);
                         const c3 = Math.floor(10 + Math.random() * 90);
                         const displayCode = `${c1} ${c2} ${c3}`;
                         setSessionCodes([c1, c2, c3]);
 
-                        // Create session
                         const sessionId = crypto.randomUUID();
                         const ref = getSessionRef(sessionId);
                         
+                        setLogs(p => ["Creating session...", ...p]);
                         await window.fb.setDoc(ref, { 
                             status: 'waiting', 
                             createdAt: Date.now(),
@@ -300,10 +316,10 @@
                             userAgent: navigator.userAgent
                         });
                         
-                        setLogs(prev => ["Ready to connect.", `Session ID: ${sessionId.slice(0,4)}...`]);
+                        setLogs(p => [`Ready. Session: ${displayCode}`, ...p]);
 
-                        // Listen for changes
                         unsubscribe = window.fb.onSnapshot(ref, (doc) => {
+                            if (!doc.exists()) return;
                             const data = doc.data();
                             if (data) {
                                 if (data.status === 'connected') {
@@ -321,6 +337,7 @@
                         });
                     } catch(e) {
                         setLogs(prev => [`Error: ${e.message}`, ...prev]);
+                        console.error(e);
                     }
                 };
                 initHost();
@@ -359,7 +376,7 @@
                             </div>
                         </div>
                     </div>
-                    <button onClick={onReset} className="absolute bottom-8 text-zinc-600 hover:text-white transition-colors text-sm">← Back to Menu</button>
+                    <button onClick={onReset} className="absolute bottom-16 text-zinc-600 hover:text-white transition-colors text-sm">← Back to Menu</button>
                     <VersionDisplay />
                     <RefreshButton />
                 </div>
@@ -408,23 +425,24 @@
             const searchSessions = async () => {
                 if (!window.fb) return;
                 setIsSearching(true);
+                setAvailableSessions([]);
                 try {
                     const colRef = getSessionsCollection();
-                    // Get all sessions (in a real app, we would filter by timestamp)
                     const snap = await window.fb.getDocs(colRef);
                     const sessions = [];
-                    const now = Date.now();
                     snap.forEach(doc => {
                         const data = doc.data();
-                        // Only show sessions created in last 10 mins and waiting
-                        if (data.status === 'waiting' && (now - data.createdAt) < 600000) {
+                        // タイムスタンプ制限を緩和 (とりあえず全部出す)
+                        if (data.status === 'waiting') {
                             sessions.push({ id: doc.id, ...data });
                         }
                     });
+                    // 新しい順にソート
+                    sessions.sort((a, b) => b.createdAt - a.createdAt);
                     setAvailableSessions(sessions);
                 } catch (e) {
                     console.error(e);
-                    addLog("Search failed");
+                    addLog("Search Error");
                 } finally {
                     setIsSearching(false);
                 }
@@ -441,7 +459,7 @@
                     if (navigator.vibrate) navigator.vibrate([50, 50, 100]);
                 } catch (e) {
                     console.error(e);
-                    addLog("Connection failed");
+                    addLog("Connect Failed");
                 }
             };
 
@@ -495,7 +513,7 @@
                                 {isSearching ? (
                                     <div className="flex justify-center p-12"><div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div></div>
                                 ) : (
-                                    <div className="grid gap-4 max-h-[60vh] overflow-y-auto">
+                                    <div className="grid gap-4 max-h-[50vh] overflow-y-auto">
                                         {availableSessions.length === 0 ? (
                                             <div className="text-center text-zinc-500 py-8 bg-zinc-900/50 rounded-2xl">
                                                 <p>待機中のMacが見つかりません</p>
