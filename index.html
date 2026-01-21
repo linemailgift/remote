@@ -16,10 +16,9 @@
     <!-- Firebase SDK (Modular) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, collection, query, where, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Initialize Firebase with environment variables
         const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
         const appIdStr = typeof __app_id !== 'undefined' ? __app_id : 'default-app';
         const authToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
@@ -31,31 +30,20 @@
                 const auth = getAuth(app);
                 const db = getFirestore(app);
 
-                // Expose Firebase features to global window for React
                 window.fb = {
-                    auth,
-                    db,
-                    doc,
-                    setDoc,
-                    getDoc,
-                    updateDoc,
-                    onSnapshot,
-                    collection,
+                    auth, db, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, query, where, getDocs, deleteDoc,
                     appId: appIdStr,
-                    // Authentication helper
-                    initAuth: async () => {
-                        try {
-                            if (authToken) {
-                                await signInWithCustomToken(auth, authToken);
+                    initAuth: () => new Promise((resolve) => {
+                        const unsub = onAuthStateChanged(auth, (user) => {
+                            if (user) {
+                                resolve(user);
+                                unsub();
                             } else {
-                                await signInAnonymously(auth);
+                                if (authToken) signInWithCustomToken(auth, authToken).catch(console.error);
+                                else signInAnonymously(auth).catch(console.error);
                             }
-                            return auth.currentUser;
-                        } catch (e) {
-                            console.error("Auth error:", e);
-                            return null;
-                        }
-                    }
+                        });
+                    })
                 };
                 console.log("Firebase initialized");
             }
@@ -117,7 +105,8 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useRef, useMemo } = React;
+        const APP_VERSION = "v1.2.0";
 
         // --- Icons (SVG) ---
         const SvgIcon = ({ children, size = 24, className = "" }) => (
@@ -160,7 +149,8 @@
             Cloud: (props) => <SvgIcon {...props}><path d="M17.5 19c0-1.7-1.3-3-3-3h-1.1c-.1-2.3-2.1-4-4.4-4-2.3 0-4.4 1.7-4.4 4H4.5c-1.7 0-3 1.3-3 3s1.3 3 3 3h13c1.7 0 3-1.3 3-3z" /></SvgIcon>,
             Lock: (props) => <SvgIcon {...props}><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></SvgIcon>,
             Shield: (props) => <SvgIcon {...props}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></SvgIcon>,
-            Key: (props) => <SvgIcon {...props}><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" /></SvgIcon>
+            Key: (props) => <SvgIcon {...props}><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" /></SvgIcon>,
+            Refresh: (props) => <SvgIcon {...props}><path d="M23 4v6h-6" /><path d="M1 20v-6h6" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></SvgIcon>
         };
         const SafeIcon = ({ icon, size = 24, className = "" }) => {
             const IconComponent = Icons[icon];
@@ -228,11 +218,34 @@
         const COLOR_PALETTE = ['bg-slate-700', 'bg-red-600', 'bg-orange-600', 'bg-amber-600', 'bg-green-600', 'bg-emerald-600', 'bg-teal-600', 'bg-cyan-600', 'bg-sky-600', 'bg-blue-600', 'bg-indigo-600', 'bg-violet-600', 'bg-purple-600', 'bg-fuchsia-600', 'bg-pink-600', 'bg-rose-600'];
 
         // --- Helper: Get Firestore Ref ---
-        const getSessionRef = (code) => {
+        const getSessionRef = (id) => {
             if (!window.fb || !window.fb.db || !window.fb.appId) return null;
             const { db, appId, collection, doc } = window.fb;
-            return doc(collection(db, 'artifacts', appId, 'public', 'data', 'remote_sessions'), code);
+            return doc(collection(db, 'artifacts', appId, 'public', 'data', 'remote_sessions'), id);
         };
+
+        const getSessionsCollection = () => {
+            if (!window.fb || !window.fb.db || !window.fb.appId) return null;
+            const { db, appId, collection } = window.fb;
+            return collection(db, 'artifacts', appId, 'public', 'data', 'remote_sessions');
+        };
+
+        // --- Common UI Components ---
+        const VersionDisplay = () => (
+            <div className="absolute bottom-3 left-4 text-zinc-600 text-[10px] font-mono z-50">
+                {APP_VERSION}
+            </div>
+        );
+
+        const RefreshButton = () => (
+            <button 
+                onClick={() => window.location.reload()}
+                className="absolute bottom-3 right-4 p-2 text-zinc-600 hover:text-white transition-colors z-50 rounded-full hover:bg-zinc-800"
+                title="Reload App"
+            >
+                <SafeIcon icon="Refresh" size={16} />
+            </button>
+        );
 
         // --- Screens ---
 
@@ -245,67 +258,95 @@
                 <div className="grid gap-6 w-full max-w-md">
                     <button onClick={() => onSelect('host')} className="flex items-center gap-4 bg-zinc-900 border border-zinc-700 hover:border-blue-500 hover:bg-zinc-800 p-6 rounded-2xl transition-all group">
                         <div className="bg-blue-600/20 p-4 rounded-full group-hover:bg-blue-600/30 transition-colors"><SafeIcon icon="Monitor" size={32} className="text-blue-400" /></div>
-                        <div className="text-left"><div className="font-bold text-lg">Mac (受信機)</div><div className="text-sm text-zinc-500">操作を受け付ける</div></div>
+                        <div className="text-left"><div className="font-bold text-lg">Mac (受信機)</div><div className="text-sm text-zinc-500">待機・操作を受け付けます</div></div>
                     </button>
                     <button onClick={() => onSelect('remote')} className="flex items-center gap-4 bg-zinc-900 border border-zinc-700 hover:border-green-500 hover:bg-zinc-800 p-6 rounded-2xl transition-all group">
                         <div className="bg-green-600/20 p-4 rounded-full group-hover:bg-green-600/30 transition-colors"><SafeIcon icon="Smartphone" size={32} className="text-green-400" /></div>
-                        <div className="text-left"><div className="font-bold text-lg">iPhone (リモコン)</div><div className="text-sm text-zinc-500">この端末で操作する</div></div>
+                        <div className="text-left"><div className="font-bold text-lg">iPhone (リモコン)</div><div className="text-sm text-zinc-500">Macを探して操作します</div></div>
                     </button>
                 </div>
+                <VersionDisplay />
+                <RefreshButton />
             </div>
         );
 
-        const HostScreen = ({ pairingCode, onReset }) => {
-            const [logs, setLogs] = useState(["Waiting for remote..."]);
+        const HostScreen = ({ onReset }) => {
+            const [logs, setLogs] = useState(["Initializing..."]);
+            const [sessionCodes, setSessionCodes] = useState(null);
             
             useEffect(() => {
+                let unsubscribe;
+                
                 const initHost = async () => {
                     if (!window.fb) return;
-                    await window.fb.initAuth();
-                    const ref = getSessionRef(pairingCode);
-                    if (!ref) return;
+                    try {
+                        await window.fb.initAuth();
+                        // Generate 3 pairs of 2-digit numbers (e.g., "12 34 56")
+                        const c1 = Math.floor(10 + Math.random() * 90);
+                        const c2 = Math.floor(10 + Math.random() * 90);
+                        const c3 = Math.floor(10 + Math.random() * 90);
+                        const displayCode = `${c1} ${c2} ${c3}`;
+                        setSessionCodes([c1, c2, c3]);
 
-                    await window.fb.setDoc(ref, { 
-                        status: 'waiting', 
-                        createdAt: Date.now(),
-                        code: pairingCode
-                    });
+                        // Create session
+                        const sessionId = crypto.randomUUID();
+                        const ref = getSessionRef(sessionId);
+                        
+                        await window.fb.setDoc(ref, { 
+                            status: 'waiting', 
+                            createdAt: Date.now(),
+                            displayCode: displayCode,
+                            sessionId: sessionId,
+                            userAgent: navigator.userAgent
+                        });
+                        
+                        setLogs(prev => ["Ready to connect.", `Session ID: ${sessionId.slice(0,4)}...`]);
 
-                    // Listen for changes
-                    const unsubscribe = window.fb.onSnapshot(ref, (doc) => {
-                        const data = doc.data();
-                        if (data) {
-                            if (data.status === 'connected') {
-                                setLogs(prev => {
-                                    if(prev.includes("Remote Connected!")) return prev;
-                                    return [...prev, "Remote Connected!"];
-                                });
+                        // Listen for changes
+                        unsubscribe = window.fb.onSnapshot(ref, (doc) => {
+                            const data = doc.data();
+                            if (data) {
+                                if (data.status === 'connected') {
+                                    setLogs(prev => {
+                                        if(prev.includes("iPhone Connected!")) return prev;
+                                        return ["iPhone Connected!", ...prev];
+                                    });
+                                }
+                                if (data.command) {
+                                    const cmdStr = `Received: ${data.command.sub} (${data.command.label})`;
+                                    setLogs(prev => [cmdStr, ...prev.slice(0, 8)]);
+                                    if (navigator.vibrate) navigator.vibrate(10);
+                                }
                             }
-                            if (data.command) {
-                                // Show command in log
-                                const cmdStr = `Received: ${data.command.sub} (${data.command.label})`;
-                                setLogs(prev => [cmdStr, ...prev.slice(0, 8)]);
-                                if (navigator.vibrate) navigator.vibrate(10);
-                            }
-                        }
-                    });
-                    return unsubscribe;
+                        });
+                    } catch(e) {
+                        setLogs(prev => [`Error: ${e.message}`, ...prev]);
+                    }
                 };
-                const unsub = initHost();
-                return () => { if(typeof unsub === 'function') unsub(); };
-            }, [pairingCode]);
+                initHost();
+                return () => { if(unsubscribe) unsubscribe(); };
+            }, []);
 
             return (
                 <div className="flex flex-col items-center justify-center h-screen bg-black text-white p-8 relative overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-b from-blue-900/10 to-black pointer-events-none"></div>
-                    <div className="absolute w-96 h-96 bg-blue-600/5 rounded-full blur-3xl -top-20 -left-20"></div>
                     <div className="z-10 text-center max-w-2xl w-full">
-                        <div className="mb-8">
-                            <h2 className="text-sm font-mono text-zinc-400 mb-2 tracking-widest uppercase">Connection Code</h2>
-                            <div className="text-7xl font-bold tracking-widest neon-text font-mono bg-zinc-900/50 p-8 rounded-3xl border border-white/10 inline-block">
-                                {pairingCode}
-                            </div>
-                            <p className="mt-6 text-zinc-400">iPhoneでこの番号を入力してください</p>
+                        <div className="mb-12">
+                            <h2 className="text-sm font-mono text-zinc-400 mb-4 tracking-widest uppercase">Pairing Code</h2>
+                            {sessionCodes ? (
+                                <div className="flex justify-center gap-4">
+                                    {sessionCodes.map((code, i) => (
+                                        <div key={i} className="text-5xl font-bold font-mono bg-zinc-900/80 p-6 rounded-2xl border border-blue-500/30 neon-text min-w-[100px]">
+                                            {code}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="h-24 flex items-center justify-center"><div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div></div>
+                            )}
+                            <p className="mt-8 text-zinc-400 bg-zinc-900/50 inline-block px-6 py-2 rounded-full border border-zinc-800">
+                                iPhoneで同じ数字のボタンを選んでください
+                            </p>
                         </div>
                         <div className="bg-zinc-950 rounded-xl p-4 border border-zinc-800 h-48 overflow-hidden text-left font-mono text-xs w-full max-w-lg mx-auto shadow-2xl">
                             <div className="flex gap-1.5 mb-3 border-b border-zinc-800 pb-2">
@@ -319,6 +360,8 @@
                         </div>
                     </div>
                     <button onClick={onReset} className="absolute bottom-8 text-zinc-600 hover:text-white transition-colors text-sm">← Back to Menu</button>
+                    <VersionDisplay />
+                    <RefreshButton />
                 </div>
             );
         };
@@ -328,18 +371,16 @@
             const [currentMode, setCurrentMode] = useState('productivity');
             const [modes, setModes] = useState(INITIAL_MODES);
             const [isEditing, setIsEditing] = useState(false);
-            const [logs, setLogs] = useState(['System Ready...']);
+            const [logs, setLogs] = useState(['Ready...']);
             const [lastCommand, setLastCommand] = useState(null);
             
             const [showPairingModal, setShowPairingModal] = useState(false);
-            const [pairingCode, setPairingCode] = useState(['', '', '', '']);
-            const [pairingError, setPairingError] = useState(false);
-            const [targetCode, setTargetCode] = useState(null);
+            const [availableSessions, setAvailableSessions] = useState([]);
+            const [targetSessionId, setTargetSessionId] = useState(null);
+            const [isSearching, setIsSearching] = useState(false);
             
-            const codeInputRefs = useRef([]);
             const logsEndRef = useRef(null);
 
-            // Init Auth on mount
             useEffect(() => {
                 if (window.fb) window.fb.initAuth();
             }, []);
@@ -356,61 +397,51 @@
             const toggleConnection = () => {
                 if (connected) {
                     setConnected(false);
-                    setTargetCode(null);
+                    setTargetSessionId(null);
                     addLog("Disconnected");
                 } else {
                     setShowPairingModal(true);
-                    setPairingCode(['', '', '', '']);
-                    setPairingError(false);
+                    searchSessions();
                 }
             };
 
-            const handleCodeChange = (index, value) => {
-                if (value.length > 1) value = value.slice(-1);
-                if (!/^\d*$/.test(value)) return;
-                const newCode = [...pairingCode];
-                newCode[index] = value;
-                setPairingCode(newCode);
-                setPairingError(false);
-                if (value && index < 3) codeInputRefs.current[index + 1].focus();
-                if (index === 3 && value) {
-                    const fullCode = newCode.join('');
-                    setTimeout(() => checkPairing(fullCode), 100);
-                }
-            };
-            
-            const handleKeyDown = (index, e) => {
-                if (e.key === 'Backspace' && !pairingCode[index] && index > 0) codeInputRefs.current[index - 1].focus();
-            };
-
-            const checkPairing = async (code) => {
-                if (!window.fb) {
-                    setPairingError(true); 
-                    return;
-                }
-                
+            const searchSessions = async () => {
+                if (!window.fb) return;
+                setIsSearching(true);
                 try {
-                    const ref = getSessionRef(code);
-                    const snap = await window.fb.getDoc(ref);
-                    
-                    if (snap.exists()) {
-                        await window.fb.updateDoc(ref, { status: 'connected' });
-                        setTargetCode(code);
-                        setConnected(true);
-                        setShowPairingModal(false);
-                        addLog(`Connected to Host (${code})`);
-                        if (navigator.vibrate) navigator.vibrate([50, 50, 100]);
-                    } else {
-                        setPairingError(true);
-                        if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
-                        setTimeout(() => {
-                            setPairingCode(['', '', '', '']);
-                            if(codeInputRefs.current[0]) codeInputRefs.current[0].focus();
-                        }, 500);
-                    }
+                    const colRef = getSessionsCollection();
+                    // Get all sessions (in a real app, we would filter by timestamp)
+                    const snap = await window.fb.getDocs(colRef);
+                    const sessions = [];
+                    const now = Date.now();
+                    snap.forEach(doc => {
+                        const data = doc.data();
+                        // Only show sessions created in last 10 mins and waiting
+                        if (data.status === 'waiting' && (now - data.createdAt) < 600000) {
+                            sessions.push({ id: doc.id, ...data });
+                        }
+                    });
+                    setAvailableSessions(sessions);
                 } catch (e) {
                     console.error(e);
-                    setPairingError(true);
+                    addLog("Search failed");
+                } finally {
+                    setIsSearching(false);
+                }
+            };
+
+            const selectSession = async (session) => {
+                try {
+                    const ref = getSessionRef(session.id);
+                    await window.fb.updateDoc(ref, { status: 'connected' });
+                    setTargetSessionId(session.id);
+                    setConnected(true);
+                    setShowPairingModal(false);
+                    addLog(`Connected! (${session.displayCode})`);
+                    if (navigator.vibrate) navigator.vibrate([50, 50, 100]);
+                } catch (e) {
+                    console.error(e);
+                    addLog("Connection failed");
                 }
             };
 
@@ -426,7 +457,7 @@
                     return;
                 }
 
-                if (!connected || !targetCode) {
+                if (!connected || !targetSessionId) {
                     addLog("Error: Not Connected");
                     if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
                     return;
@@ -437,9 +468,8 @@
                 if (navigator.vibrate) navigator.vibrate(20);
                 setTimeout(() => setLastCommand(null), 200);
 
-                // Send to Firestore
                 try {
-                    const ref = getSessionRef(targetCode);
+                    const ref = getSessionRef(targetSessionId);
                     await window.fb.updateDoc(ref, { 
                         command: { id: btn.id, sub: btn.sub, label: btn.label, timestamp: Date.now() } 
                     });
@@ -455,20 +485,42 @@
                 <div className={`touch-manipulation flex flex-col h-screen bg-black text-slate-100 font-sans transition-colors duration-500 ${isEditing ? 'border-4 border-yellow-500/50' : ''}`}>
                     {/* Pairing Modal */}
                     {showPairingModal && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md px-6 animate-fade-in-up">
-                            <div className="bg-zinc-900 border border-zinc-700 rounded-3xl p-6 w-full max-w-sm shadow-2xl flex flex-col items-center">
-                                <div className="mb-6 bg-zinc-800 p-4 rounded-full"><SafeIcon icon="Key" size={32} className="text-white" /></div>
-                                <h3 className="text-xl font-bold mb-2">Enter Pairing Code</h3>
-                                <p className="text-sm text-zinc-400 text-center mb-6">PC画面に表示されている<br/>4桁の数字を入力してください</p>
-                                <div className="flex justify-center gap-3 mb-2">
-                                    {pairingCode.map((digit, idx) => (
-                                        <input key={idx} ref={el => codeInputRefs.current[idx] = el} type="tel" inputMode="numeric" maxLength={1} value={digit}
-                                            onChange={(e) => handleCodeChange(idx, e.target.value)} onKeyDown={(e) => handleKeyDown(idx, e)}
-                                            className={`w-12 h-14 bg-zinc-800 border-2 rounded-xl text-center text-2xl font-mono focus:outline-none transition-all ${pairingError ? 'border-red-500 text-red-500 animate-shake' : 'border-zinc-700 focus:border-blue-500 text-white'}`} />
-                                    ))}
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md px-6 animate-fade-in-up">
+                            <div className="w-full max-w-md">
+                                <div className="text-center mb-8">
+                                    <h3 className="text-xl font-bold mb-2 text-white">Select Your Mac</h3>
+                                    <p className="text-sm text-zinc-400">PC画面と同じ数字のペアを選んでください</p>
                                 </div>
-                                {pairingError && <p className="text-red-500 text-xs mb-4">コードが見つかりません</p>}
-                                <button onClick={() => setShowPairingModal(false)} className="mt-4 text-zinc-500 text-sm py-2">Cancel</button>
+                                
+                                {isSearching ? (
+                                    <div className="flex justify-center p-12"><div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div></div>
+                                ) : (
+                                    <div className="grid gap-4 max-h-[60vh] overflow-y-auto">
+                                        {availableSessions.length === 0 ? (
+                                            <div className="text-center text-zinc-500 py-8 bg-zinc-900/50 rounded-2xl">
+                                                <p>待機中のMacが見つかりません</p>
+                                                <button onClick={searchSessions} className="mt-4 text-blue-400 text-sm">再検索</button>
+                                            </div>
+                                        ) : (
+                                            availableSessions.map(session => (
+                                                <button
+                                                    key={session.id}
+                                                    onClick={() => selectSession(session)}
+                                                    className="bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 hover:border-blue-500 p-6 rounded-2xl flex items-center justify-between group transition-all"
+                                                >
+                                                    <div className="flex gap-3 font-mono text-2xl font-bold text-white">
+                                                        {session.displayCode.split(' ').map((num, i) => (
+                                                            <span key={i} className="bg-black/30 px-2 py-1 rounded-md border border-white/5">{num}</span>
+                                                        ))}
+                                                    </div>
+                                                    <SafeIcon icon="ArrowRight" className="text-zinc-500 group-hover:text-blue-400" />
+                                                </button>
+                                            ))
+                                        )}
+                                    </div>
+                                )}
+                                
+                                <button onClick={() => setShowPairingModal(false)} className="mt-8 w-full text-zinc-500 py-4 hover:text-white transition-colors">Cancel</button>
                             </div>
                         </div>
                     )}
@@ -526,28 +578,18 @@
                             ))}
                         </div>
                     </nav>
+                    <VersionDisplay />
+                    <RefreshButton />
                 </div>
             );
         };
 
         function App() {
             const [viewMode, setViewMode] = useState('select'); 
-            const [pairingCode, setPairingCode] = useState('0000');
-
-            const generateCode = () => {
-                const code = Math.floor(1000 + Math.random() * 9000).toString();
-                setPairingCode(code);
-            };
-
-            const handleSelect = (mode) => {
-                if (mode === 'host') generateCode();
-                setViewMode(mode);
-            };
-
             return (
                 <>
-                    {viewMode === 'select' && <DeviceSelectScreen onSelect={handleSelect} />}
-                    {viewMode === 'host' && <HostScreen pairingCode={pairingCode} onReset={() => setViewMode('select')} />}
+                    {viewMode === 'select' && <DeviceSelectScreen onSelect={setViewMode} />}
+                    {viewMode === 'host' && <HostScreen onReset={() => setViewMode('select')} />}
                     {viewMode === 'remote' && <RemoteScreen onBack={() => setViewMode('select')} />}
                 </>
             );
