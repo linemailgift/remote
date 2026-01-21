@@ -1,40 +1,44 @@
 import React, { useState, useEffect, useRef } from 'react';
-import * as LucideIcons from 'lucide-react';
+import { 
+    Monitor, Copy, Scissors, Clipboard, Undo, Redo, Save, Chrome, 
+    ArrowLeft, ArrowRight, X, Search, Volume2, VolumeX, SkipBack, 
+    SkipForward, Play, Pause, Command, Grid, Layout, Layers, Terminal, 
+    Wifi, WifiOff, Check, Palette, Smartphone
+} from 'lucide-react';
 
-// スタイル定義（JSX内に注入）
+// アイコンマッピング
+const ICON_MAP = {
+    Monitor, Copy, Scissors, Clipboard, Undo, Redo, Save, Chrome, 
+    ArrowLeft, ArrowRight, X, Search, Volume2, VolumeX, SkipBack, 
+    SkipForward, Play, Pause, Command, Grid, Layout, Layers, Terminal, 
+    Wifi, WifiOff, Check, Palette, Smartphone
+};
+
+// スタイル定義
 const styles = `
-    /* グローバル設定のオーバーライド */
     body {
         background-color: #0f172a;
         color: white;
-        overflow: hidden; /* スクロール防止 */
+        overflow: hidden;
     }
-    
-    /* タッチ操作の最適化 */
     .touch-manipulation {
         touch-action: manipulation;
         user-select: none;
         -webkit-user-select: none;
     }
-
     .btn-active:active {
         transform: scale(0.95);
         transition: transform 0.05s;
     }
-    
-    /* ネオン効果 */
     .neon-text {
         text-shadow: 0 0 5px rgba(56, 189, 248, 0.5);
     }
-    
     .glass-panel {
         background: rgba(30, 41, 59, 0.7);
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
         border: 1px solid rgba(255, 255, 255, 0.1);
     }
-    
-    /* 編集モード時の振動アニメーション */
     @keyframes shake {
         0% { transform: rotate(0deg); }
         25% { transform: rotate(1deg); }
@@ -44,8 +48,6 @@ const styles = `
     .editing-shake {
         animation: shake 0.3s infinite;
     }
-
-    /* カスタムスクロールバー */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: #0f172a; }
     ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
@@ -54,7 +56,7 @@ const styles = `
 
 // アイコンを安全に表示するコンポーネント
 const SafeIcon = ({ icon, size = 24, className = "" }) => {
-    const IconComponent = LucideIcons[icon];
+    const IconComponent = ICON_MAP[icon];
     if (!IconComponent) {
         return <div style={{ width: size, height: size, background: 'rgba(255,255,255,0.2)', borderRadius: '4px' }} className={className} />;
     }
@@ -115,9 +117,9 @@ const INITIAL_MODES = {
             { id: 'desktop', label: 'デスクトップ', sub: 'Win+D', icon: 'Monitor', color: 'bg-indigo-600' },
             { id: 'start', label: 'Start', sub: 'Win', icon: 'Grid', color: 'bg-slate-600' },
             { id: 'lock', label: 'Lock PC', sub: 'Win+L', icon: 'Command', color: 'bg-red-800' },
-                ]
-            }
-        };
+        ]
+    }
+};
 
 // 利用可能なカラーパレット
 const COLOR_PALETTE = [
@@ -152,7 +154,9 @@ export default function App() {
 
     // ログの自動スクロール
     useEffect(() => {
-        logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        if (logsEndRef.current) {
+            logsEndRef.current.scrollIntoView({ behavior: "smooth" });
+        }
     }, [logs]);
 
     const addLog = (message) => {
@@ -190,20 +194,17 @@ export default function App() {
             return newModes;
         });
         
-        // 振動フィードバック
         if (typeof navigator !== 'undefined' && navigator.vibrate) {
             navigator.vibrate([30, 30, 30]);
         }
     };
 
     const handleButtonClick = (btn) => {
-        // 編集モードの場合：色を変更
         if (isEditing) {
             cycleButtonColor(currentMode, btn.id);
             return;
         }
 
-        // 通常モード：コマンド送信
         if (!connected) {
             addLog("エラー: 未接続です。右上のボタンで接続してください。");
             if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([50, 50, 50]);
@@ -233,7 +234,6 @@ export default function App() {
                     </h1>
                 </div>
                 <div className="flex gap-2">
-                    {/* 編集ボタン */}
                     <button
                         onClick={() => setIsEditing(!isEditing)}
                         className={`p-2 rounded-full transition-all flex items-center justify-center ${
@@ -245,7 +245,6 @@ export default function App() {
                         <SafeIcon icon={isEditing ? "Check" : "Palette"} size={18} />
                     </button>
 
-                    {/* 接続ボタン */}
                     <button 
                         onClick={toggleConnection}
                         className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${
@@ -262,7 +261,6 @@ export default function App() {
 
             {/* Main Control Area */}
             <main className="flex-1 overflow-y-auto p-4 flex flex-col justify-center">
-                {/* Mode Indicator & Hint */}
                 <div className="text-center mb-6">
                     <span className={`inline-flex items-center gap-2 px-4 py-1 rounded-full bg-slate-800 border border-slate-700 text-sm ${modes[currentMode].color}`}>
                         <SafeIcon icon={CurrentModeIcon} size={18} />
@@ -275,7 +273,6 @@ export default function App() {
                     )}
                 </div>
 
-                {/* Button Grid */}
                 <div className="grid grid-cols-2 gap-4 max-w-md mx-auto w-full">
                     {CurrentButtons.map((btn) => (
                         <button
@@ -304,7 +301,6 @@ export default function App() {
                                 </div>
                             )}
 
-                            {/* クリック時の波紋エフェクト */}
                             <div className="absolute inset-0 bg-white/10 opacity-0 group-active:opacity-100 transition-opacity" />
                         </button>
                     ))}
