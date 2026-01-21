@@ -12,8 +12,6 @@
     <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- QR Code Library (Local Generation) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.1/qrcode.min.js"></script>
 
     <!-- Firebase SDK (Modular) -->
     <script type="module">
@@ -58,8 +56,8 @@
 
     <style>
         body {
-            /* 背景色を変更: より深みのあるナイトブルー系グラデーション */
-            background: radial-gradient(circle at center, #0f172a 0%, #000000 100%);
+            /* 背景色を変更: エレガントなディープバイオレット〜ブラックのグラデーション */
+            background: radial-gradient(circle at center, #2e1065 0%, #020617 100%);
             color: white;
             overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -77,19 +75,19 @@
             transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .neon-text {
-            text-shadow: 0 0 25px rgba(56, 189, 248, 0.6);
+            text-shadow: 0 0 25px rgba(167, 139, 250, 0.6);
         }
         .glass-panel {
-            background: rgba(30, 41, 59, 0.6);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+            background: rgba(46, 16, 101, 0.4);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
         }
         .glass-panel-bottom {
             background: rgba(15, 23, 42, 0.85);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
             border-top: 1px solid rgba(255, 255, 255, 0.1);
         }
         @keyframes shake {
@@ -105,12 +103,11 @@
         }
         .animate-fade-in-up { animation: fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         
-        @keyframes pulse-border {
-            0% { border-color: rgba(59, 130, 246, 0.3); box-shadow: 0 0 0 rgba(59, 130, 246, 0); }
-            50% { border-color: rgba(59, 130, 246, 0.8); box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
-            100% { border-color: rgba(59, 130, 246, 0.3); box-shadow: 0 0 0 rgba(59, 130, 246, 0); }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 15px rgba(139, 92, 246, 0.3); }
+            50% { box-shadow: 0 0 30px rgba(139, 92, 246, 0.7); }
         }
-        .animate-pulse-border { animation: pulse-border 2s infinite; }
+        .animate-pulse-glow { animation: pulse-glow 2s infinite; }
 
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -122,7 +119,7 @@
 
     <script type="text/babel">
         const { useState, useEffect, useRef, useMemo } = React;
-        const APP_VERSION = "v8.0.0 (Local QR)";
+        const APP_VERSION = "v9.0.0 (Instant QR)";
 
         // --- Icons (SVG) ---
         const SvgIcon = ({ children, size = 24, className = "" }) => (
@@ -327,7 +324,6 @@
             const [sessionId, setSessionId] = useState(null);
             const [status, setStatus] = useState('initializing'); // initializing, ready, connected
             const sessionIdRef = useRef(null);
-            const canvasRef = useRef(null);
             
             useEffect(() => {
                 let unsubscribe;
@@ -394,26 +390,8 @@
                 return url.toString();
             };
 
-            // Generate QR Code locally
-            useEffect(() => {
-                if (sessionId && canvasRef.current && status === 'ready') {
-                    const url = getJoinUrl();
-                    // QRCode is globally available from the CDN script
-                    if (window.QRCode) {
-                        window.QRCode.toCanvas(canvasRef.current, url, {
-                            width: 200,
-                            margin: 2,
-                            color: {
-                                dark: "#000000",
-                                light: "#ffffff"
-                            }
-                        }, function (error) {
-                            if (error) console.error(error);
-                            else console.log('QR Generated');
-                        });
-                    }
-                }
-            }, [sessionId, status]);
+            // Use Standard API for QR code to ensure it displays without library issues
+            const qrUrl = sessionId ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(getJoinUrl())}&color=a7-8b-fa` : '';
 
             const handleCopyLink = () => {
                 const url = getJoinUrl();
@@ -466,8 +444,8 @@
                                     <p className="text-zinc-400 text-sm mb-8">iPhoneの標準カメラでQRコードを読み取ってください</p>
                                     
                                     {sessionId ? (
-                                        <div className="bg-white p-4 rounded-3xl shadow-[0_0_40px_rgba(59,130,246,0.2)] mb-8 animate-pulse-glow">
-                                            <canvas ref={canvasRef} className="w-48 h-48 block"></canvas>
+                                        <div className="bg-white p-4 rounded-3xl shadow-[0_0_40px_rgba(139,92,246,0.3)] mb-8 animate-pulse-glow">
+                                            <img src={qrUrl} alt="QR Code" className="w-48 h-48" />
                                         </div>
                                     ) : (
                                         <div className="w-56 h-56 bg-zinc-800/50 rounded-3xl flex items-center justify-center mb-8 border border-white/5">
@@ -666,6 +644,12 @@
                 if (sessionId) {
                     setAutoJoinId(sessionId);
                     setViewMode('remote');
+                } else {
+                    // Check if Desktop -> default to Host
+                    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                    if (!isMobile) {
+                        setViewMode('host');
+                    }
                 }
             }, []);
 
