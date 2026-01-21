@@ -104,8 +104,8 @@
         .animate-fade-in-up { animation: fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         
         @keyframes pulse-glow {
-            0%, 100% { box-shadow: 0 0 10px rgba(59, 130, 246, 0.2); }
-            50% { box-shadow: 0 0 25px rgba(59, 130, 246, 0.6); }
+            0%, 100% { box-shadow: 0 0 15px rgba(59, 130, 246, 0.3); }
+            50% { box-shadow: 0 0 30px rgba(59, 130, 246, 0.7); }
         }
         .animate-pulse-glow { animation: pulse-glow 2s infinite; }
 
@@ -119,7 +119,7 @@
 
     <script type="text/babel">
         const { useState, useEffect, useRef, useMemo } = React;
-        const APP_VERSION = "v4.0.0 (Auto Detect)";
+        const APP_VERSION = "v5.0.0 (Magic Link)";
 
         // --- Icons (SVG) ---
         const SvgIcon = ({ children, size = 24, className = "" }) => (
@@ -166,7 +166,8 @@
             Refresh: (props) => <SvgIcon {...props}><path d="M23 4v6h-6" /><path d="M1 20v-6h6" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></SvgIcon>,
             Share: (props) => <SvgIcon {...props}><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" /></SvgIcon>,
             Link: (props) => <SvgIcon {...props}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></SvgIcon>,
-            Send: (props) => <SvgIcon {...props}><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></SvgIcon>
+            Send: (props) => <SvgIcon {...props}><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></SvgIcon>,
+            Airplay: (props) => <SvgIcon {...props}><path d="M5 17H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1" /><polygon points="12 15 17 21 7 21 12 15" /></SvgIcon>
         };
         const SafeIcon = ({ icon, size = 24, className = "" }) => {
             const IconComponent = Icons[icon];
@@ -263,8 +264,8 @@
             const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
             
             useEffect(() => {
-                // If it's a mobile device and we have no session params, default to remote select
-                // But we show the nice UI first
+                // 自動判定: 画面サイズやUAで判定してデフォルト遷移もありだが、
+                // 今回はユーザーが明示的に「Start」するUIにする
             }, []);
 
             return (
@@ -282,36 +283,36 @@
                     <div className="w-full max-w-sm space-y-4">
                         {!isMobile ? (
                             <div className="space-y-4">
-                                <div className="bg-zinc-900/50 border border-blue-500/30 p-6 rounded-2xl">
-                                    <h2 className="text-lg font-bold mb-2 text-white">Step 1: Start Host</h2>
-                                    <p className="text-xs text-zinc-400 mb-6">受信機として待機を開始します</p>
+                                <div className="bg-zinc-900/50 border border-blue-500/30 p-6 rounded-2xl backdrop-blur-md">
+                                    <h2 className="text-lg font-bold mb-2 text-white">Step 1: Start Receiver</h2>
+                                    <p className="text-xs text-zinc-400 mb-6">受信機として待機を開始し、iPhoneへリンクを送ります</p>
                                     <button 
                                         onClick={() => onSelectMode('host')}
-                                        className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all transform hover:scale-105 flex items-center justify-center gap-2"
+                                        className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.5)] transition-all transform hover:scale-105 flex items-center justify-center gap-2"
                                     >
                                         <SafeIcon icon="Monitor" size={20} />
                                         Start Receiver
                                     </button>
                                 </div>
-                                <div className="text-xs text-zinc-600 pt-4">
-                                    スマホで操作したい場合は <button onClick={() => onSelectMode('remote')} className="text-zinc-400 underline hover:text-white">こちら</button>
+                                <div className="text-xs text-zinc-600 pt-2">
+                                    または <button onClick={() => onSelectMode('remote')} className="text-zinc-400 underline hover:text-white">リモコンとして使用</button>
                                 </div>
                             </div>
                         ) : (
                             <div className="space-y-4">
-                                <div className="bg-zinc-900/50 border border-green-500/30 p-6 rounded-2xl">
-                                    <h2 className="text-lg font-bold mb-2 text-white">Ready to Connect</h2>
-                                    <p className="text-xs text-zinc-400 mb-6">Macから送られたリンクを開くか、手動で接続します</p>
+                                <div className="bg-zinc-900/50 border border-green-500/30 p-6 rounded-2xl backdrop-blur-md">
+                                    <h2 className="text-lg font-bold mb-2 text-white">Remote Mode</h2>
+                                    <p className="text-xs text-zinc-400 mb-6">Macから送られたリンクを開くか、手動で開始します</p>
                                     <button 
                                         onClick={() => onSelectMode('remote')}
-                                        className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all transform hover:scale-105 flex items-center justify-center gap-2"
+                                        className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-6 rounded-xl shadow-[0_0_15px_rgba(34,197,94,0.5)] transition-all transform hover:scale-105 flex items-center justify-center gap-2"
                                     >
                                         <SafeIcon icon="Smartphone" size={20} />
                                         Start Remote
                                     </button>
                                 </div>
-                                <div className="text-xs text-zinc-600 pt-4">
-                                    PCとして使いたい場合は <button onClick={() => onSelectMode('host')} className="text-zinc-400 underline hover:text-white">こちら</button>
+                                <div className="text-xs text-zinc-600 pt-2">
+                                    または <button onClick={() => onSelectMode('host')} className="text-zinc-400 underline hover:text-white">受信機として使用</button>
                                 </div>
                             </div>
                         )}
@@ -325,6 +326,7 @@
         const HostScreen = ({ onReset }) => {
             const [logs, setLogs] = useState(["Initializing..."]);
             const [sessionId, setSessionId] = useState(null);
+            const [status, setStatus] = useState('initializing'); // initializing, ready, connected
             const sessionIdRef = useRef(null);
             
             useEffect(() => {
@@ -351,6 +353,7 @@
                             userAgent: navigator.userAgent
                         });
                         
+                        setStatus('ready');
                         setLogs(p => [`Ready. Session ID created.`, ...p]);
 
                         unsubscribe = window.fb.onSnapshot(ref, (doc) => {
@@ -358,6 +361,7 @@
                             const data = doc.data();
                             if (data) {
                                 if (data.status === 'connected') {
+                                    setStatus('connected');
                                     setLogs(prev => {
                                         if(prev.includes("iPhone Connected!")) return prev;
                                         return ["iPhone Connected!", ...prev];
@@ -379,7 +383,6 @@
                 return () => { 
                     if(unsubscribe) unsubscribe(); 
                     if(sessionIdRef.current && window.fb) {
-                        // Cleanup on unmount
                         window.fb.deleteDoc(getSessionRef(sessionIdRef.current));
                     }
                 };
@@ -402,9 +405,9 @@
                 if (navigator.share) {
                     try {
                         await navigator.share(shareData);
-                        setLogs(p => ["Shared link", ...p]);
+                        setLogs(p => ["Shared link via AirDrop/Menu", ...p]);
                     } catch (err) {
-                        setLogs(p => ["Share cancelled/failed", ...p]);
+                        setLogs(p => ["Share cancelled", ...p]);
                     }
                 } else {
                     handleCopyLink();
@@ -429,33 +432,63 @@
             return (
                 <div className="flex flex-col items-center justify-center h-screen p-8 relative overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-t from-blue-900/10 via-transparent to-transparent pointer-events-none"></div>
+                    
+                    {/* Status Indicator at top */}
+                    <div className="absolute top-8 left-0 right-0 flex justify-center">
+                        <div className={`px-4 py-1 rounded-full text-xs font-bold tracking-wider border flex items-center gap-2 ${
+                            status === 'connected' ? 'bg-green-500/20 border-green-500/50 text-green-400' :
+                            status === 'ready' ? 'bg-blue-500/20 border-blue-500/50 text-blue-400' :
+                            'bg-zinc-800 border-zinc-700 text-zinc-500'
+                        }`}>
+                            <div className={`w-2 h-2 rounded-full ${
+                                status === 'connected' ? 'bg-green-500 animate-pulse' :
+                                status === 'ready' ? 'bg-blue-500 animate-pulse' :
+                                'bg-zinc-500'
+                            }`}></div>
+                            {status === 'connected' ? 'CONNECTED' : status === 'ready' ? 'WAITING FOR IPHONE' : 'INITIALIZING'}
+                        </div>
+                    </div>
+
                     <div className="z-10 text-center max-w-2xl w-full">
                         <div className="mb-12">
-                            <h2 className="text-xl font-bold text-white mb-2">Step 2: Share Link</h2>
-                            <p className="text-zinc-400 text-sm mb-8">iPhoneにリンクを送って接続します</p>
-                            
-                            {sessionId ? (
-                                <div className="flex flex-col gap-4 items-center animate-fade-in-up">
-                                    <button 
-                                        onClick={handleShare}
-                                        className="flex items-center gap-3 bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-10 rounded-full shadow-[0_0_25px_rgba(37,99,235,0.4)] transition-all transform hover:scale-105 border border-blue-400/30"
-                                    >
-                                        <SafeIcon icon="Send" size={24} />
-                                        <span>AirDrop / Share</span>
-                                    </button>
-                                    
-                                    <div className="flex items-center gap-2 mt-2">
-                                        <button 
-                                            onClick={handleCopyLink}
-                                            className="flex items-center gap-2 text-xs text-zinc-500 hover:text-white transition-colors bg-zinc-900/50 px-4 py-2 rounded-full border border-zinc-800"
-                                        >
-                                            <SafeIcon icon="Link" size={12} />
-                                            <span>Copy Link</span>
-                                        </button>
+                            {status === 'connected' ? (
+                                <div className="animate-fade-in-up">
+                                    <div className="w-24 h-24 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(34,197,94,0.3)]">
+                                        <SafeIcon icon="Check" size={48} className="text-green-400" />
                                     </div>
+                                    <h2 className="text-2xl font-bold text-white mb-2">Connected Successfully</h2>
+                                    <p className="text-zinc-400">Ready to receive commands</p>
                                 </div>
                             ) : (
-                                <div className="h-32 flex items-center justify-center"><div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div></div>
+                                <div className="animate-fade-in-up">
+                                    <h2 className="text-xl font-bold text-white mb-2">Step 2: Share to iPhone</h2>
+                                    <p className="text-zinc-400 text-sm mb-8">「AirDropで送る」をタップして、<br/>自分のiPhoneを選んでください</p>
+                                    
+                                    {sessionId ? (
+                                        <div className="flex flex-col gap-6 items-center">
+                                            <button 
+                                                onClick={handleShare}
+                                                className="group relative flex items-center gap-4 bg-blue-600 hover:bg-blue-500 text-white font-bold py-5 px-12 rounded-2xl shadow-[0_0_40px_rgba(37,99,235,0.4)] transition-all transform hover:scale-105 border border-blue-400/30 overflow-hidden"
+                                            >
+                                                <div className="absolute inset-0 bg-gradient-to-r from-blue-400/0 via-white/20 to-blue-400/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+                                                <SafeIcon icon="Airplay" size={32} />
+                                                <span className="text-lg">AirDropで送る</span>
+                                            </button>
+                                            
+                                            <button 
+                                                onClick={handleCopyLink}
+                                                className="flex items-center gap-2 text-xs text-zinc-500 hover:text-white transition-colors bg-zinc-900/50 px-4 py-2 rounded-full border border-zinc-800"
+                                            >
+                                                <SafeIcon icon="Link" size={12} />
+                                                <span>Copy Link Manually</span>
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="h-32 flex items-center justify-center">
+                                            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                                        </div>
+                                    )}
+                                </div>
                             )}
                         </div>
 
