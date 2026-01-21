@@ -12,6 +12,8 @@
     <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- QR Code Library (Local Generation) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.1/qrcode.min.js"></script>
 
     <!-- Firebase SDK (Modular) -->
     <script type="module">
@@ -56,8 +58,8 @@
 
     <style>
         body {
-            /* 背景色を変更: 少し青みがかったダークグレーのグラデーション */
-            background: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
+            /* 背景色を変更: より深みのあるナイトブルー系グラデーション */
+            background: radial-gradient(circle at center, #0f172a 0%, #000000 100%);
             color: white;
             overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -75,20 +77,20 @@
             transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .neon-text {
-            text-shadow: 0 0 20px rgba(96, 165, 250, 0.4);
+            text-shadow: 0 0 25px rgba(56, 189, 248, 0.6);
         }
         .glass-panel {
-            background: rgba(30, 41, 59, 0.7);
-            backdrop-filter: blur(25px);
-            -webkit-backdrop-filter: blur(25px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
         }
         .glass-panel-bottom {
-            background: rgba(30, 41, 59, 0.8);
-            backdrop-filter: blur(25px);
-            -webkit-backdrop-filter: blur(25px);
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
         }
         @keyframes shake {
             0% { transform: rotate(0deg); }
@@ -103,11 +105,12 @@
         }
         .animate-fade-in-up { animation: fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         
-        @keyframes pulse-glow {
-            0%, 100% { box-shadow: 0 0 15px rgba(59, 130, 246, 0.3); }
-            50% { box-shadow: 0 0 30px rgba(59, 130, 246, 0.7); }
+        @keyframes pulse-border {
+            0% { border-color: rgba(59, 130, 246, 0.3); box-shadow: 0 0 0 rgba(59, 130, 246, 0); }
+            50% { border-color: rgba(59, 130, 246, 0.8); box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
+            100% { border-color: rgba(59, 130, 246, 0.3); box-shadow: 0 0 0 rgba(59, 130, 246, 0); }
         }
-        .animate-pulse-glow { animation: pulse-glow 2s infinite; }
+        .animate-pulse-border { animation: pulse-border 2s infinite; }
 
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -119,7 +122,7 @@
 
     <script type="text/babel">
         const { useState, useEffect, useRef, useMemo } = React;
-        const APP_VERSION = "v7.0.0 (QR Fix)";
+        const APP_VERSION = "v8.0.0 (Local QR)";
 
         // --- Icons (SVG) ---
         const SvgIcon = ({ children, size = 24, className = "" }) => (
@@ -244,7 +247,7 @@
 
         // --- Common UI Components ---
         const VersionDisplay = () => (
-            <div className="fixed bottom-4 left-4 text-zinc-600 text-[10px] font-mono z-50 pointer-events-none">
+            <div className="fixed top-4 left-4 text-zinc-500 text-xs font-bold font-mono z-50 pointer-events-none bg-black/60 px-3 py-1 rounded-full border border-zinc-700/50">
                 {APP_VERSION}
             </div>
         );
@@ -252,7 +255,7 @@
         const RefreshButton = () => (
             <button 
                 onClick={() => window.location.reload()}
-                className="fixed bottom-4 right-4 p-2 text-zinc-600 hover:text-white transition-colors z-50 rounded-full hover:bg-zinc-800/50"
+                className="fixed bottom-4 right-4 p-2 text-zinc-500 hover:text-white transition-colors z-50 rounded-full hover:bg-zinc-800/50"
                 title="Reload"
             >
                 <SafeIcon icon="Refresh" size={16} />
@@ -266,11 +269,11 @@
             
             return (
                 <div className="flex flex-col items-center justify-center h-screen p-6 animate-fade-in-up text-center">
-                    <div className="mb-8">
-                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-500/20 mb-4 animate-pulse-glow">
+                    <div className="mb-10">
+                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-500/10 mb-4 animate-pulse-border border border-blue-500/30">
                             <SafeIcon icon={isMobile ? "Smartphone" : "Monitor"} size={32} className="text-blue-400" />
                         </div>
-                        <h1 className="text-3xl font-bold mb-2 neon-text">Smart Remote Deck</h1>
+                        <h1 className="text-3xl font-bold mb-2 neon-text tracking-tight">Smart Remote Deck</h1>
                         <p className="text-zinc-400 text-sm">
                             {isMobile ? "Mobile Device Detected" : "Desktop Detected"}
                         </p>
@@ -279,36 +282,36 @@
                     <div className="w-full max-w-sm space-y-4">
                         {!isMobile ? (
                             <div className="space-y-4">
-                                <div className="bg-zinc-900/50 border border-blue-500/30 p-6 rounded-2xl backdrop-blur-md">
-                                    <h2 className="text-lg font-bold mb-2 text-white">Start Receiver</h2>
-                                    <p className="text-xs text-zinc-400 mb-6">QRコードを表示してiPhoneと接続します</p>
+                                <div className="bg-zinc-900/50 border border-blue-500/30 p-8 rounded-3xl backdrop-blur-xl shadow-2xl">
+                                    <h2 className="text-xl font-bold mb-2 text-white">Start Receiver</h2>
+                                    <p className="text-xs text-zinc-400 mb-8">QRコードを表示してiPhoneと接続します</p>
                                     <button 
                                         onClick={() => onSelectMode('host')}
-                                        className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.5)] transition-all transform hover:scale-105 flex items-center justify-center gap-2"
+                                        className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-6 rounded-2xl shadow-[0_0_20px_rgba(37,99,235,0.4)] transition-all transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3"
                                     >
                                         <SafeIcon icon="Monitor" size={20} />
                                         Start
                                     </button>
                                 </div>
                                 <div className="text-xs text-zinc-600 pt-2">
-                                    <button onClick={() => onSelectMode('remote')} className="text-zinc-400 underline hover:text-white">リモコンとして使用</button>
+                                    <button onClick={() => onSelectMode('remote')} className="text-zinc-500 underline hover:text-white transition-colors">リモコンとして使用</button>
                                 </div>
                             </div>
                         ) : (
                             <div className="space-y-4">
-                                <div className="bg-zinc-900/50 border border-green-500/30 p-6 rounded-2xl backdrop-blur-md">
-                                    <h2 className="text-lg font-bold mb-2 text-white">Remote Mode</h2>
-                                    <p className="text-xs text-zinc-400 mb-6">MacのQRコードを読み取るかリンクを開いてください</p>
+                                <div className="bg-zinc-900/50 border border-green-500/30 p-8 rounded-3xl backdrop-blur-xl shadow-2xl">
+                                    <h2 className="text-xl font-bold mb-2 text-white">Remote Mode</h2>
+                                    <p className="text-xs text-zinc-400 mb-8">MacのQRコードを読み取ってください</p>
                                     <button 
                                         onClick={() => onSelectMode('remote')}
-                                        className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-6 rounded-xl shadow-[0_0_15px_rgba(34,197,94,0.5)] transition-all transform hover:scale-105 flex items-center justify-center gap-2"
+                                        className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-4 px-6 rounded-2xl shadow-[0_0_20px_rgba(34,197,94,0.4)] transition-all transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3"
                                     >
                                         <SafeIcon icon="Smartphone" size={20} />
                                         Start Remote
                                     </button>
                                 </div>
                                 <div className="text-xs text-zinc-600 pt-2">
-                                    <button onClick={() => onSelectMode('host')} className="text-zinc-400 underline hover:text-white">受信機として使用</button>
+                                    <button onClick={() => onSelectMode('host')} className="text-zinc-500 underline hover:text-white transition-colors">受信機として使用</button>
                                 </div>
                             </div>
                         )}
@@ -324,6 +327,7 @@
             const [sessionId, setSessionId] = useState(null);
             const [status, setStatus] = useState('initializing'); // initializing, ready, connected
             const sessionIdRef = useRef(null);
+            const canvasRef = useRef(null);
             
             useEffect(() => {
                 let unsubscribe;
@@ -350,7 +354,7 @@
                         });
                         
                         setStatus('ready');
-                        setLogs(p => [`Ready. Scan QR Code to connect.`, ...p]);
+                        setLogs(p => [`Ready. Scan QR Code.`, ...p]);
 
                         unsubscribe = window.fb.onSnapshot(ref, (doc) => {
                             if (!doc.exists()) return;
@@ -390,8 +394,26 @@
                 return url.toString();
             };
 
-            // QRコードのURL (Standard API)
-            const qrUrl = sessionId ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(getJoinUrl())}` : '';
+            // Generate QR Code locally
+            useEffect(() => {
+                if (sessionId && canvasRef.current && status === 'ready') {
+                    const url = getJoinUrl();
+                    // QRCode is globally available from the CDN script
+                    if (window.QRCode) {
+                        window.QRCode.toCanvas(canvasRef.current, url, {
+                            width: 200,
+                            margin: 2,
+                            color: {
+                                dark: "#000000",
+                                light: "#ffffff"
+                            }
+                        }, function (error) {
+                            if (error) console.error(error);
+                            else console.log('QR Generated');
+                        });
+                    }
+                }
+            }, [sessionId, status]);
 
             const handleCopyLink = () => {
                 const url = getJoinUrl();
@@ -414,17 +436,17 @@
                     
                     {/* Status Indicator */}
                     <div className="absolute top-8 left-0 right-0 flex justify-center">
-                        <div className={`px-4 py-1 rounded-full text-xs font-bold tracking-wider border flex items-center gap-2 ${
-                            status === 'connected' ? 'bg-green-500/20 border-green-500/50 text-green-400' :
-                            status === 'ready' ? 'bg-blue-500/20 border-blue-500/50 text-blue-400' :
-                            'bg-zinc-800 border-zinc-700 text-zinc-500'
+                        <div className={`px-4 py-1.5 rounded-full text-xs font-bold tracking-widest border flex items-center gap-2 shadow-lg backdrop-blur-md ${
+                            status === 'connected' ? 'bg-green-500/10 border-green-500/30 text-green-400' :
+                            status === 'ready' ? 'bg-blue-500/10 border-blue-500/30 text-blue-400' :
+                            'bg-zinc-800/50 border-zinc-700/50 text-zinc-500'
                         }`}>
                             <div className={`w-2 h-2 rounded-full ${
                                 status === 'connected' ? 'bg-green-500 animate-pulse' :
                                 status === 'ready' ? 'bg-blue-500 animate-pulse' :
                                 'bg-zinc-500'
                             }`}></div>
-                            {status === 'connected' ? 'CONNECTED' : status === 'ready' ? 'WAITING FOR IPHONE' : 'INITIALIZING'}
+                            {status === 'connected' ? 'CONNECTED' : status === 'ready' ? 'WAITING FOR SCAN' : 'INITIALIZING'}
                         </div>
                     </div>
 
@@ -432,23 +454,23 @@
                         <div className="mb-8">
                             {status === 'connected' ? (
                                 <div className="animate-fade-in-up">
-                                    <div className="w-24 h-24 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(34,197,94,0.3)]">
-                                        <SafeIcon icon="Check" size={48} className="text-green-400" />
+                                    <div className="w-32 h-32 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-8 shadow-[0_0_50px_rgba(34,197,94,0.2)] border border-green-500/20">
+                                        <SafeIcon icon="Check" size={64} className="text-green-400" />
                                     </div>
-                                    <h2 className="text-2xl font-bold text-white mb-2">Connected Successfully</h2>
+                                    <h2 className="text-3xl font-bold text-white mb-2 tracking-tight">Connected</h2>
                                     <p className="text-zinc-400">Ready to receive commands</p>
                                 </div>
                             ) : (
                                 <div className="animate-fade-in-up flex flex-col items-center">
-                                    <h2 className="text-xl font-bold text-white mb-2">Scan to Connect</h2>
-                                    <p className="text-zinc-400 text-sm mb-6">iPhoneのカメラでQRコードを読み取ってください</p>
+                                    <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">Scan to Connect</h2>
+                                    <p className="text-zinc-400 text-sm mb-8">iPhoneの標準カメラでQRコードを読み取ってください</p>
                                     
-                                    {qrUrl ? (
-                                        <div className="bg-white p-4 rounded-3xl shadow-[0_0_30px_rgba(59,130,246,0.3)] mb-6 animate-pulse-glow">
-                                            <img src={qrUrl} alt="QR Code" className="w-48 h-48" />
+                                    {sessionId ? (
+                                        <div className="bg-white p-4 rounded-3xl shadow-[0_0_40px_rgba(59,130,246,0.2)] mb-8 animate-pulse-glow">
+                                            <canvas ref={canvasRef} className="w-48 h-48 block"></canvas>
                                         </div>
                                     ) : (
-                                        <div className="w-48 h-48 bg-zinc-800 rounded-3xl flex items-center justify-center mb-6">
+                                        <div className="w-56 h-56 bg-zinc-800/50 rounded-3xl flex items-center justify-center mb-8 border border-white/5">
                                             <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                                         </div>
                                     )}
@@ -456,7 +478,7 @@
                                     <div className="flex gap-4">
                                         <button 
                                             onClick={handleCopyLink}
-                                            className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-white py-2 px-4 rounded-full border border-zinc-700 transition-colors text-xs"
+                                            className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-white py-2.5 px-5 rounded-full border border-zinc-700 transition-colors text-xs font-medium"
                                         >
                                             <SafeIcon icon="Link" size={14} />
                                             <span>Copy Link</span>
@@ -466,18 +488,18 @@
                             )}
                         </div>
 
-                        <div className="bg-zinc-950/80 backdrop-blur-md rounded-xl p-4 border border-zinc-800/50 h-40 overflow-hidden text-left font-mono text-xs w-full max-w-lg mx-auto shadow-2xl">
-                            <div className="flex gap-1.5 mb-3 border-b border-zinc-800 pb-2 opacity-50">
+                        <div className="bg-zinc-950/60 backdrop-blur-xl rounded-2xl p-5 border border-zinc-800/50 h-40 overflow-hidden text-left font-mono text-xs w-full max-w-lg mx-auto shadow-2xl">
+                            <div className="flex gap-1.5 mb-3 border-b border-zinc-800/50 pb-2 opacity-50">
                                 <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div><div className="w-2.5 h-2.5 rounded-full bg-yellow-500"></div><div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
                                 <span className="ml-auto text-zinc-600">Terminal</span>
                             </div>
-                            <div className="space-y-1 text-zinc-400">
+                            <div className="space-y-1.5 text-zinc-400">
                                 {logs.map((log, i) => <div key={i}><span className="text-blue-500 mr-2">➜</span>{log}</div>)}
-                                <div className="animate-pulse">_</div>
+                                <div className="animate-pulse w-2 h-4 bg-zinc-600 mt-1"></div>
                             </div>
                         </div>
                     </div>
-                    <button onClick={onReset} className="absolute bottom-16 text-zinc-600 hover:text-white transition-colors text-sm">← Back</button>
+                    <button onClick={onReset} className="absolute bottom-16 text-zinc-500 hover:text-white transition-colors text-sm font-medium">← Back to Menu</button>
                     <VersionDisplay />
                     <RefreshButton />
                 </div>
