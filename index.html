@@ -48,9 +48,6 @@
                         });
                     })
                 };
-                console.log("Firebase initialized");
-            } else {
-                console.warn("Firebase config missing projectId");
             }
         } catch (e) {
             console.error("Firebase init failed:", e);
@@ -75,16 +72,16 @@
             transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .neon-text {
-            text-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+            text-shadow: 0 0 15px rgba(56, 189, 248, 0.5);
         }
         .glass-panel {
-            background: rgba(28, 28, 30, 0.85);
+            background: rgba(20, 20, 22, 0.85);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
         .glass-panel-bottom {
-            background: rgba(28, 28, 30, 0.85);
+            background: rgba(20, 20, 22, 0.85);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             border-top: 1px solid rgba(255, 255, 255, 0.1);
@@ -110,8 +107,8 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef, useMemo } = React;
-        const APP_VERSION = "v2.2.0"; // 自動検出版
+        const { useState, useEffect, useRef } = React;
+        const APP_VERSION = "v3.0.0 (AirDrop Link)";
 
         // --- Icons (SVG) ---
         const SvgIcon = ({ children, size = 24, className = "" }) => (
@@ -155,7 +152,9 @@
             Lock: (props) => <SvgIcon {...props}><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></SvgIcon>,
             Shield: (props) => <SvgIcon {...props}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></SvgIcon>,
             Key: (props) => <SvgIcon {...props}><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" /></SvgIcon>,
-            Refresh: (props) => <SvgIcon {...props}><path d="M23 4v6h-6" /><path d="M1 20v-6h6" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></SvgIcon>
+            Refresh: (props) => <SvgIcon {...props}><path d="M23 4v6h-6" /><path d="M1 20v-6h6" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></SvgIcon>,
+            Share: (props) => <SvgIcon {...props}><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" /></SvgIcon>,
+            Link: (props) => <SvgIcon {...props}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></SvgIcon>
         };
         const SafeIcon = ({ icon, size = 24, className = "" }) => {
             const IconComponent = Icons[icon];
@@ -229,15 +228,9 @@
             return doc(collection(db, 'artifacts', appId, 'public', 'data', 'remote_sessions'), id);
         };
 
-        const getSessionsCollection = () => {
-            if (!window.fb || !window.fb.db || !window.fb.appId) return null;
-            const { db, appId, collection } = window.fb;
-            return collection(db, 'artifacts', appId, 'public', 'data', 'remote_sessions');
-        };
-
         // --- Common UI Components ---
         const VersionDisplay = () => (
-            <div className="absolute bottom-4 left-4 text-zinc-500 text-[10px] font-mono z-50 bg-black/50 px-2 py-1 rounded border border-zinc-800">
+            <div className="absolute bottom-4 left-4 text-zinc-500 text-[10px] font-mono z-50 bg-black/50 px-2 py-1 rounded border border-zinc-800 pointer-events-none">
                 {APP_VERSION}
             </div>
         );
@@ -267,10 +260,9 @@
                     </button>
                     <button onClick={() => onSelect('remote')} className="flex items-center gap-4 bg-zinc-900 border border-zinc-700 hover:border-green-500 hover:bg-zinc-800 p-6 rounded-2xl transition-all group">
                         <div className="bg-green-600/20 p-4 rounded-full group-hover:bg-green-600/30 transition-colors"><SafeIcon icon="Smartphone" size={32} className="text-green-400" /></div>
-                        <div className="text-left"><div className="font-bold text-lg">iPhone (リモコン)</div><div className="text-sm text-zinc-500">Macを探して操作します</div></div>
+                        <div className="text-left"><div className="font-bold text-lg">iPhone (リモコン)</div><div className="text-sm text-zinc-500">Macを操作します</div></div>
                     </button>
                 </div>
-                
                 <VersionDisplay />
                 <RefreshButton />
             </div>
@@ -278,7 +270,7 @@
 
         const HostScreen = ({ onReset }) => {
             const [logs, setLogs] = useState(["Initializing..."]);
-            const [sessionCodes, setSessionCodes] = useState(null);
+            const [sessionId, setSessionId] = useState(null);
             const sessionIdRef = useRef(null);
             
             useEffect(() => {
@@ -293,27 +285,19 @@
                         setLogs(p => ["Authenticating...", ...p]);
                         await window.fb.initAuth();
                         
-                        // Generate 3 pairs
-                        const c1 = Math.floor(10 + Math.random() * 90);
-                        const c2 = Math.floor(10 + Math.random() * 90);
-                        const c3 = Math.floor(10 + Math.random() * 90);
-                        const displayCode = `${c1} ${c2} ${c3}`;
-                        setSessionCodes([c1, c2, c3]);
-
-                        const sessionId = crypto.randomUUID();
-                        sessionIdRef.current = sessionId;
-                        const ref = getSessionRef(sessionId);
+                        const sid = crypto.randomUUID();
+                        setSessionId(sid);
+                        sessionIdRef.current = sid;
+                        const ref = getSessionRef(sid);
                         
                         setLogs(p => ["Creating session...", ...p]);
                         await window.fb.setDoc(ref, { 
                             status: 'waiting', 
                             createdAt: Date.now(),
-                            displayCode: displayCode,
-                            sessionId: sessionId,
                             userAgent: navigator.userAgent
                         });
                         
-                        setLogs(p => [`Ready. Session: ${displayCode}`, ...p]);
+                        setLogs(p => [`Ready. Session ID created.`, ...p]);
 
                         unsubscribe = window.fb.onSnapshot(ref, (doc) => {
                             if (!doc.exists()) return;
@@ -347,27 +331,81 @@
                 };
             }, []);
 
+            const getJoinUrl = () => {
+                const url = new URL(window.location.href);
+                url.searchParams.set('s', sessionId);
+                return url.toString();
+            };
+
+            const handleShare = async () => {
+                const url = getJoinUrl();
+                const shareData = {
+                    title: 'Smart Remote Deck',
+                    text: 'Connect to Mac',
+                    url: url
+                };
+
+                if (navigator.share) {
+                    try {
+                        await navigator.share(shareData);
+                        setLogs(p => ["Shared link", ...p]);
+                    } catch (err) {
+                        setLogs(p => ["Share cancelled/failed", ...p]);
+                    }
+                } else {
+                    handleCopyLink();
+                }
+            };
+
+            const handleCopyLink = () => {
+                const url = getJoinUrl();
+                const textArea = document.createElement("textarea");
+                textArea.value = url;
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    setLogs(p => ["Link copied to clipboard!", ...p]);
+                } catch (err) {
+                    setLogs(p => ["Failed to copy", ...p]);
+                }
+                document.body.removeChild(textArea);
+            };
+
             return (
                 <div className="flex flex-col items-center justify-center h-screen bg-black text-white p-8 relative overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-b from-blue-900/10 to-black pointer-events-none"></div>
                     <div className="z-10 text-center max-w-2xl w-full">
                         <div className="mb-12">
-                            <h2 className="text-sm font-mono text-zinc-400 mb-4 tracking-widest uppercase">Pairing Code</h2>
-                            {sessionCodes ? (
-                                <div className="flex justify-center gap-4">
-                                    {sessionCodes.map((code, i) => (
-                                        <div key={i} className="text-5xl font-bold font-mono bg-zinc-900/80 p-6 rounded-2xl border border-blue-500/30 neon-text min-w-[100px]">
-                                            {code}
-                                        </div>
-                                    ))}
+                            <h2 className="text-sm font-mono text-zinc-400 mb-6 tracking-widest uppercase">Quick Connect</h2>
+                            
+                            {sessionId ? (
+                                <div className="flex flex-col gap-4 items-center">
+                                    <button 
+                                        onClick={handleShare}
+                                        className="flex items-center gap-3 bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-8 rounded-full shadow-[0_0_20px_rgba(37,99,235,0.5)] transition-all transform hover:scale-105"
+                                    >
+                                        <SafeIcon icon="Share" size={24} />
+                                        <span>AirDrop / Share Link</span>
+                                    </button>
+                                    
+                                    <button 
+                                        onClick={handleCopyLink}
+                                        className="flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
+                                    >
+                                        <SafeIcon icon="Link" size={14} />
+                                        <span>Copy Link Manually</span>
+                                    </button>
                                 </div>
                             ) : (
                                 <div className="h-24 flex items-center justify-center"><div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div></div>
                             )}
-                            <p className="mt-8 text-zinc-400 bg-zinc-900/50 inline-block px-6 py-2 rounded-full border border-zinc-800">
-                                iPhoneで同じ数字のボタンを選んでください
+                            
+                            <p className="mt-8 text-zinc-400 text-sm bg-zinc-900/50 inline-block px-6 py-3 rounded-xl border border-zinc-800">
+                                AirDropでiPhoneに送るか、<br/>リンクを共有して開いてください
                             </p>
                         </div>
+
                         <div className="bg-zinc-950 rounded-xl p-4 border border-zinc-800 h-48 overflow-hidden text-left font-mono text-xs w-full max-w-lg mx-auto shadow-2xl">
                             <div className="flex gap-1.5 mb-3 border-b border-zinc-800 pb-2">
                                 <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div><div className="w-2.5 h-2.5 rounded-full bg-yellow-500"></div><div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
@@ -386,7 +424,7 @@
             );
         };
 
-        const RemoteScreen = ({ onBack }) => {
+        const RemoteScreen = ({ onBack, autoJoinId }) => {
             const [connected, setConnected] = useState(false);
             const [currentMode, setCurrentMode] = useState('productivity');
             const [modes, setModes] = useState(INITIAL_MODES);
@@ -394,11 +432,7 @@
             const [logs, setLogs] = useState(['Ready...']);
             const [lastCommand, setLastCommand] = useState(null);
             
-            const [showPairingModal, setShowPairingModal] = useState(false);
-            const [availableSessions, setAvailableSessions] = useState([]);
-            const [targetSessionId, setTargetSessionId] = useState(null);
-            const [isSearching, setIsSearching] = useState(false);
-            
+            const [targetSessionId, setTargetSessionId] = useState(autoJoinId || null);
             const logsEndRef = useRef(null);
 
             useEffect(() => {
@@ -409,32 +443,30 @@
                 if (logsEndRef.current) logsEndRef.current.scrollIntoView({ behavior: "smooth" });
             }, [logs]);
 
-            // Real-time search listener
+            // Auto-join logic
             useEffect(() => {
-                let unsubscribe;
-                if (showPairingModal && window.fb) {
-                    setIsSearching(true);
-                    const colRef = getSessionsCollection();
-                    // Listen to all sessions
-                    unsubscribe = window.fb.onSnapshot(colRef, (snapshot) => {
-                        const sessions = [];
-                        const now = Date.now();
-                        snapshot.forEach(doc => {
-                            const data = doc.data();
-                            // Filter in memory for simplicity and robustness against time skew
-                            // Allow sessions created up to 30 mins ago
-                            if (data.status === 'waiting' && (now - data.createdAt) < 1800000) {
-                                sessions.push({ id: doc.id, ...data });
+                const connect = async () => {
+                    if (targetSessionId && window.fb) {
+                        try {
+                            const ref = getSessionRef(targetSessionId);
+                            // Initial check
+                            const snap = await window.fb.getDoc(ref);
+                            if (snap.exists()) {
+                                await window.fb.updateDoc(ref, { status: 'connected' });
+                                setConnected(true);
+                                addLog("Connected via Link!");
+                                if (navigator.vibrate) navigator.vibrate([50, 50, 100]);
+                            } else {
+                                addLog("Session invalid or expired");
                             }
-                        });
-                        // Sort by newest
-                        sessions.sort((a, b) => b.createdAt - a.createdAt);
-                        setAvailableSessions(sessions);
-                        setIsSearching(false);
-                    });
-                }
-                return () => { if(unsubscribe) unsubscribe(); };
-            }, [showPairingModal]);
+                        } catch (e) {
+                            console.error(e);
+                            addLog("Connection failed");
+                        }
+                    }
+                };
+                if(targetSessionId) connect();
+            }, [targetSessionId]);
 
             const addLog = (message) => {
                 const time = new Date().toLocaleTimeString('ja-JP', { hour12: false });
@@ -442,28 +474,8 @@
             };
 
             const toggleConnection = () => {
-                if (connected) {
-                    setConnected(false);
-                    setTargetSessionId(null);
-                    addLog("Disconnected");
-                } else {
-                    setShowPairingModal(true);
-                }
-            };
-
-            const selectSession = async (session) => {
-                try {
-                    const ref = getSessionRef(session.id);
-                    await window.fb.updateDoc(ref, { status: 'connected' });
-                    setTargetSessionId(session.id);
-                    setConnected(true);
-                    setShowPairingModal(false);
-                    addLog(`Connected! (${session.displayCode})`);
-                    if (navigator.vibrate) navigator.vibrate([50, 50, 100]);
-                } catch (e) {
-                    console.error(e);
-                    addLog("Connect Failed");
-                }
+                // If manual toggle, just show status
+                if (!connected) addLog("Use the share link from Mac to connect");
             };
 
             const handleButtonClick = async (btn) => {
@@ -479,7 +491,7 @@
                 }
 
                 if (!connected || !targetSessionId) {
-                    addLog("Error: Not Connected");
+                    addLog("Not Connected. Please open link from Mac");
                     if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
                     return;
                 }
@@ -504,51 +516,6 @@
 
             return (
                 <div className={`touch-manipulation flex flex-col h-screen bg-black text-slate-100 font-sans transition-colors duration-500 ${isEditing ? 'border-4 border-yellow-500/50' : ''}`}>
-                    {/* Pairing Modal */}
-                    {showPairingModal && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md px-6 animate-fade-in-up">
-                            <div className="w-full max-w-md">
-                                <div className="text-center mb-8">
-                                    <h3 className="text-xl font-bold mb-2 text-white">Select Your Mac</h3>
-                                    <p className="text-sm text-zinc-400">PC画面と同じ数字のペアを選んでください</p>
-                                </div>
-                                
-                                {isSearching && availableSessions.length === 0 ? (
-                                    <div className="flex flex-col items-center justify-center p-12 gap-4">
-                                        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                                        <div className="text-zinc-500 text-sm">Searching...</div>
-                                    </div>
-                                ) : (
-                                    <div className="grid gap-4 max-h-[50vh] overflow-y-auto">
-                                        {availableSessions.length === 0 ? (
-                                            <div className="text-center text-zinc-500 py-8 bg-zinc-900/50 rounded-2xl">
-                                                <p>待機中のMacが見つかりません</p>
-                                                <p className="text-xs mt-2">Mac側で「Mac (受信機)」画面を開いてください</p>
-                                            </div>
-                                        ) : (
-                                            availableSessions.map(session => (
-                                                <button
-                                                    key={session.id}
-                                                    onClick={() => selectSession(session)}
-                                                    className="bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 hover:border-blue-500 p-6 rounded-2xl flex items-center justify-between group transition-all"
-                                                >
-                                                    <div className="flex gap-3 font-mono text-2xl font-bold text-white">
-                                                        {session.displayCode.split(' ').map((num, i) => (
-                                                            <span key={i} className="bg-black/30 px-2 py-1 rounded-md border border-white/5">{num}</span>
-                                                        ))}
-                                                    </div>
-                                                    <SafeIcon icon="ArrowRight" className="text-zinc-500 group-hover:text-blue-400" />
-                                                </button>
-                                            ))
-                                        )}
-                                    </div>
-                                )}
-                                
-                                <button onClick={() => setShowPairingModal(false)} className="mt-8 w-full text-zinc-500 py-4 hover:text-white transition-colors">Cancel</button>
-                            </div>
-                        </div>
-                    )}
-
                     {/* Header */}
                     <header className="flex justify-between items-center p-4 glass-panel z-10 shrink-0 pt-safe-top">
                         <button onClick={onBack} className="text-zinc-500 hover:text-white mr-2"><SafeIcon icon="ArrowLeft" size={20}/></button>
@@ -610,11 +577,22 @@
 
         function App() {
             const [viewMode, setViewMode] = useState('select'); 
+            const [autoJoinId, setAutoJoinId] = useState(null);
+
+            useEffect(() => {
+                const params = new URLSearchParams(window.location.search);
+                const sessionId = params.get('s');
+                if (sessionId) {
+                    setAutoJoinId(sessionId);
+                    setViewMode('remote');
+                }
+            }, []);
+
             return (
                 <>
                     {viewMode === 'select' && <DeviceSelectScreen onSelect={setViewMode} />}
                     {viewMode === 'host' && <HostScreen onReset={() => setViewMode('select')} />}
-                    {viewMode === 'remote' && <RemoteScreen onBack={() => setViewMode('select')} />}
+                    {viewMode === 'remote' && <RemoteScreen onBack={() => setViewMode('select')} autoJoinId={autoJoinId} />}
                 </>
             );
         }
