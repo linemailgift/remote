@@ -20,7 +20,6 @@
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, collection, query, where, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
-        // Ensure appId is consistent or fallback to a common one for manual copies (though security rules might block)
         const appIdStr = typeof __app_id !== 'undefined' ? __app_id : 'default-app';
         const authToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
@@ -112,7 +111,7 @@
 
     <script type="text/babel">
         const { useState, useEffect, useRef, useMemo } = React;
-        const APP_VERSION = "v2.1.0"; // 更新バージョン
+        const APP_VERSION = "v2.2.0"; // 自動検出版
 
         // --- Icons (SVG) ---
         const SvgIcon = ({ children, size = 24, className = "" }) => (
@@ -249,7 +248,7 @@
                 className="absolute bottom-4 right-4 flex items-center gap-2 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-full text-xs font-bold transition-all border border-zinc-700 z-50"
             >
                 <SafeIcon icon="Refresh" size={12} />
-                UPDATE / RELOAD
+                UPDATE
             </button>
         );
 
@@ -272,10 +271,6 @@
                     </button>
                 </div>
                 
-                <div className="absolute top-6 right-6">
-                     <button onClick={() => window.location.reload()} className="bg-zinc-800 p-2 rounded-full text-zinc-400 hover:text-white"><SafeIcon icon="Refresh" size={20} /></button>
-                </div>
-
                 <VersionDisplay />
                 <RefreshButton />
             </div>
@@ -284,6 +279,7 @@
         const HostScreen = ({ onReset }) => {
             const [logs, setLogs] = useState(["Initializing..."]);
             const [sessionCodes, setSessionCodes] = useState(null);
+            const sessionIdRef = useRef(null);
             
             useEffect(() => {
                 let unsubscribe;
@@ -305,6 +301,7 @@
                         setSessionCodes([c1, c2, c3]);
 
                         const sessionId = crypto.randomUUID();
+                        sessionIdRef.current = sessionId;
                         const ref = getSessionRef(sessionId);
                         
                         setLogs(p => ["Creating session...", ...p]);
@@ -341,7 +338,13 @@
                     }
                 };
                 initHost();
-                return () => { if(unsubscribe) unsubscribe(); };
+                return () => { 
+                    if(unsubscribe) unsubscribe(); 
+                    if(sessionIdRef.current && window.fb) {
+                        // Cleanup on unmount
+                        window.fb.deleteDoc(getSessionRef(sessionIdRef.current));
+                    }
+                };
             }, []);
 
             return (
@@ -406,6 +409,33 @@
                 if (logsEndRef.current) logsEndRef.current.scrollIntoView({ behavior: "smooth" });
             }, [logs]);
 
+            // Real-time search listener
+            useEffect(() => {
+                let unsubscribe;
+                if (showPairingModal && window.fb) {
+                    setIsSearching(true);
+                    const colRef = getSessionsCollection();
+                    // Listen to all sessions
+                    unsubscribe = window.fb.onSnapshot(colRef, (snapshot) => {
+                        const sessions = [];
+                        const now = Date.now();
+                        snapshot.forEach(doc => {
+                            const data = doc.data();
+                            // Filter in memory for simplicity and robustness against time skew
+                            // Allow sessions created up to 30 mins ago
+                            if (data.status === 'waiting' && (now - data.createdAt) < 1800000) {
+                                sessions.push({ id: doc.id, ...data });
+                            }
+                        });
+                        // Sort by newest
+                        sessions.sort((a, b) => b.createdAt - a.createdAt);
+                        setAvailableSessions(sessions);
+                        setIsSearching(false);
+                    });
+                }
+                return () => { if(unsubscribe) unsubscribe(); };
+            }, [showPairingModal]);
+
             const addLog = (message) => {
                 const time = new Date().toLocaleTimeString('ja-JP', { hour12: false });
                 setLogs(prev => [...prev.slice(-4), `[${time}] ${message}`]);
@@ -418,33 +448,6 @@
                     addLog("Disconnected");
                 } else {
                     setShowPairingModal(true);
-                    searchSessions();
-                }
-            };
-
-            const searchSessions = async () => {
-                if (!window.fb) return;
-                setIsSearching(true);
-                setAvailableSessions([]);
-                try {
-                    const colRef = getSessionsCollection();
-                    const snap = await window.fb.getDocs(colRef);
-                    const sessions = [];
-                    snap.forEach(doc => {
-                        const data = doc.data();
-                        // タイムスタンプ制限を緩和 (とりあえず全部出す)
-                        if (data.status === 'waiting') {
-                            sessions.push({ id: doc.id, ...data });
-                        }
-                    });
-                    // 新しい順にソート
-                    sessions.sort((a, b) => b.createdAt - a.createdAt);
-                    setAvailableSessions(sessions);
-                } catch (e) {
-                    console.error(e);
-                    addLog("Search Error");
-                } finally {
-                    setIsSearching(false);
                 }
             };
 
@@ -510,14 +513,17 @@
                                     <p className="text-sm text-zinc-400">PC画面と同じ数字のペアを選んでください</p>
                                 </div>
                                 
-                                {isSearching ? (
-                                    <div className="flex justify-center p-12"><div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div></div>
+                                {isSearching && availableSessions.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center p-12 gap-4">
+                                        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                                        <div className="text-zinc-500 text-sm">Searching...</div>
+                                    </div>
                                 ) : (
                                     <div className="grid gap-4 max-h-[50vh] overflow-y-auto">
                                         {availableSessions.length === 0 ? (
                                             <div className="text-center text-zinc-500 py-8 bg-zinc-900/50 rounded-2xl">
                                                 <p>待機中のMacが見つかりません</p>
-                                                <button onClick={searchSessions} className="mt-4 text-blue-400 text-sm">再検索</button>
+                                                <p className="text-xs mt-2">Mac側で「Mac (受信機)」画面を開いてください</p>
                                             </div>
                                         ) : (
                                             availableSessions.map(session => (
