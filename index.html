@@ -1,344 +1,402 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-    Monitor, Copy, Scissors, Clipboard, Undo, Redo, Save, Chrome, 
-    ArrowLeft, ArrowRight, X, Search, Volume2, VolumeX, SkipBack, 
-    SkipForward, Play, Pause, Command, Grid, Layout, Layers, Terminal, 
-    Wifi, WifiOff, Check, Palette, Smartphone
-} from 'lucide-react';
-
-// アイコンマッピング
-const ICON_MAP = {
-    Monitor, Copy, Scissors, Clipboard, Undo, Redo, Save, Chrome, 
-    ArrowLeft, ArrowRight, X, Search, Volume2, VolumeX, SkipBack, 
-    SkipForward, Play, Pause, Command, Grid, Layout, Layers, Terminal, 
-    Wifi, WifiOff, Check, Palette, Smartphone
-};
-
-// スタイル定義
-const styles = `
-    body {
-        background-color: #0f172a;
-        color: white;
-        overflow: hidden;
-    }
-    .touch-manipulation {
-        touch-action: manipulation;
-        user-select: none;
-        -webkit-user-select: none;
-    }
-    .btn-active:active {
-        transform: scale(0.95);
-        transition: transform 0.05s;
-    }
-    .neon-text {
-        text-shadow: 0 0 5px rgba(56, 189, 248, 0.5);
-    }
-    .glass-panel {
-        background: rgba(30, 41, 59, 0.7);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    @keyframes shake {
-        0% { transform: rotate(0deg); }
-        25% { transform: rotate(1deg); }
-        75% { transform: rotate(-1deg); }
-        100% { transform: rotate(0deg); }
-    }
-    .editing-shake {
-        animation: shake 0.3s infinite;
-    }
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: #0f172a; }
-    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #475569; }
-`;
-
-// アイコンを安全に表示するコンポーネント
-const SafeIcon = ({ icon, size = 24, className = "" }) => {
-    const IconComponent = ICON_MAP[icon];
-    if (!IconComponent) {
-        return <div style={{ width: size, height: size, background: 'rgba(255,255,255,0.2)', borderRadius: '4px' }} className={className} />;
-    }
-    return <IconComponent size={size} className={className} />;
-};
-
-// 初期データ設定
-const INITIAL_MODES = {
-    productivity: {
-        id: 'productivity',
-        name: '編集・作業',
-        icon: 'Command',
-        color: 'text-emerald-400',
-        buttons: [
-            { id: 'copy', label: 'Copy', sub: 'Ctrl+C', icon: 'Copy', color: 'bg-blue-600' },
-            { id: 'paste', label: 'Paste', sub: 'Ctrl+V', icon: 'Clipboard', color: 'bg-blue-600' },
-            { id: 'cut', label: 'Cut', sub: 'Ctrl+X', icon: 'Scissors', color: 'bg-slate-600' },
-            { id: 'save', label: 'Save', sub: 'Ctrl+S', icon: 'Save', color: 'bg-emerald-600' },
-            { id: 'undo', label: 'Undo', sub: 'Ctrl+Z', icon: 'Undo', color: 'bg-slate-600' },
-            { id: 'redo', label: 'Redo', sub: 'Ctrl+Y', icon: 'Redo', color: 'bg-slate-600' },
-        ]
-    },
-    browser: {
-        id: 'browser',
-        name: 'Chrome操作',
-        icon: 'Chrome',
-        color: 'text-orange-400',
-        buttons: [
-            { id: 'prev_tab', label: '前のタブ', sub: 'Ctrl+Shift+Tab', icon: 'ArrowLeft', color: 'bg-orange-600' },
-            { id: 'next_tab', label: '次のタブ', sub: 'Ctrl+Tab', icon: 'ArrowRight', color: 'bg-orange-600' },
-            { id: 'new_tab', label: '新規タブ', sub: 'Ctrl+T', icon: 'Layout', color: 'bg-slate-600' },
-            { id: 'close_tab', label: 'タブ閉じる', sub: 'Ctrl+W', icon: 'X', color: 'bg-red-600' },
-            { id: 'reopen_tab', label: 'タブ復元', sub: 'Ctrl+Sh+T', icon: 'Undo', color: 'bg-slate-600' },
-            { id: 'focus_bar', label: '検索バー', sub: 'Ctrl+L', icon: 'Search', color: 'bg-slate-600' },
-        ]
-    },
-    media: {
-        id: 'media',
-        name: 'メディア',
-        icon: 'Play',
-        color: 'text-pink-400',
-        buttons: [
-            { id: 'play_pause', label: '再生/停止', sub: 'Space', icon: 'Play', color: 'bg-pink-600' },
-            { id: 'mute', label: 'ミュート', sub: 'M', icon: 'VolumeX', color: 'bg-slate-600' },
-            { id: 'vol_down', label: '音量 -', sub: '↓', icon: 'Volume2', color: 'bg-slate-600' },
-            { id: 'vol_up', label: '音量 +', sub: '↑', icon: 'Volume2', color: 'bg-slate-600' },
-            { id: 'skip_back', label: '-10秒', sub: '←', icon: 'SkipBack', color: 'bg-slate-600' },
-            { id: 'skip_fwd', label: '+10秒', sub: '→', icon: 'SkipForward', color: 'bg-slate-600' },
-        ]
-    },
-    system: {
-        id: 'system',
-        name: 'システム',
-        icon: 'Monitor',
-        color: 'text-blue-400',
-        buttons: [
-            { id: 'task_view', label: 'アプリ切替', sub: 'Alt+Tab', icon: 'Layers', color: 'bg-indigo-600' },
-            { id: 'desktop', label: 'デスクトップ', sub: 'Win+D', icon: 'Monitor', color: 'bg-indigo-600' },
-            { id: 'start', label: 'Start', sub: 'Win', icon: 'Grid', color: 'bg-slate-600' },
-            { id: 'lock', label: 'Lock PC', sub: 'Win+L', icon: 'Command', color: 'bg-red-800' },
-        ]
-    }
-};
-
-// 利用可能なカラーパレット
-const COLOR_PALETTE = [
-    'bg-slate-600',
-    'bg-red-600',
-    'bg-orange-600',
-    'bg-amber-600',
-    'bg-yellow-600',
-    'bg-lime-600',
-    'bg-emerald-600',
-    'bg-teal-600',
-    'bg-cyan-600',
-    'bg-sky-600',
-    'bg-blue-600',
-    'bg-indigo-600',
-    'bg-violet-600',
-    'bg-purple-600',
-    'bg-fuchsia-600',
-    'bg-pink-600',
-    'bg-rose-600'
-];
-
-export default function App() {
-    const [connected, setConnected] = useState(false);
-    const [currentMode, setCurrentMode] = useState('productivity');
-    const [modes, setModes] = useState(INITIAL_MODES);
-    const [isEditing, setIsEditing] = useState(false);
-    const [logs, setLogs] = useState(['システム準備完了...']);
-    const [lastCommand, setLastCommand] = useState(null);
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Smart Remote Deck</title>
     
-    const logsEndRef = useRef(null);
+    <!-- 必要なライブラリをCDNから読み込み -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    // ログの自動スクロール
-    useEffect(() => {
-        if (logsEndRef.current) {
-            logsEndRef.current.scrollIntoView({ behavior: "smooth" });
+    <style>
+        body {
+            background-color: #0f172a;
+            color: white;
+            overflow: hidden; /* スクロール防止 */
         }
-    }, [logs]);
-
-    const addLog = (message) => {
-        const time = new Date().toLocaleTimeString('ja-JP', { hour12: false });
-        setLogs(prev => [...prev.slice(-4), `[${time}] ${message}`]);
-    };
-
-    const toggleConnection = () => {
-        if (connected) {
-            setConnected(false);
-            addLog("切断しました");
-        } else {
-            addLog("Bluetoothデバイスを検索中...");
-            setTimeout(() => {
-                setConnected(true);
-                addLog("PC (DESKTOP-X86) に接続しました");
-            }, 1200);
+        /* タッチ操作の最適化 */
+        .touch-manipulation {
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
         }
-    };
+        .btn-active:active {
+            transform: scale(0.95);
+            transition: transform 0.05s;
+        }
+        /* ネオン効果 */
+        .neon-text {
+            text-shadow: 0 0 5px rgba(56, 189, 248, 0.5);
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        /* 編集モード時の振動アニメーション */
+        @keyframes shake {
+            0% { transform: rotate(0deg); }
+            25% { transform: rotate(1deg); }
+            75% { transform: rotate(-1deg); }
+            100% { transform: rotate(0deg); }
+        }
+        .editing-shake {
+            animation: shake 0.3s infinite;
+        }
+        /* カスタムスクロールバー */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
 
-    const cycleButtonColor = (modeId, btnId) => {
-        setModes(prevModes => {
-            const newModes = { ...prevModes };
-            const mode = { ...newModes[modeId] };
-            const buttons = mode.buttons.map(btn => {
-                if (btn.id === btnId) {
-                    const currentColorIndex = COLOR_PALETTE.indexOf(btn.color);
-                    const nextColorIndex = (currentColorIndex + 1) % COLOR_PALETTE.length;
-                    return { ...btn, color: COLOR_PALETTE[nextColorIndex] };
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- アイコン定義 (SVG直接記述で依存排除) ---
+        const SvgIcon = ({ children, size = 24, className = "" }) => (
+            <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width={size} 
+                height={size} 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                className={className}
+            >
+                {children}
+            </svg>
+        );
+
+        const Icons = {
+            Monitor: (props) => <SvgIcon {...props}><rect x="2" y="3" width="20" height="14" rx="2" ry="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></SvgIcon>,
+            Smartphone: (props) => <SvgIcon {...props}><rect x="5" y="2" width="14" height="20" rx="2" ry="2" /><line x1="12" y1="18" x2="12.01" y2="18" /></SvgIcon>,
+            Copy: (props) => <SvgIcon {...props}><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></SvgIcon>,
+            Scissors: (props) => <SvgIcon {...props}><circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><line x1="20" y1="4" x2="8.12" y2="15.88" /><line x1="14.47" y1="14.48" x2="20" y2="20" /><line x1="8.12" y1="8.12" x2="12" y2="12" /></SvgIcon>,
+            Clipboard: (props) => <SvgIcon {...props}><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" ry="1" /></SvgIcon>,
+            Undo: (props) => <SvgIcon {...props}><path d="M3 7v6h6" /><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" /></SvgIcon>,
+            Redo: (props) => <SvgIcon {...props}><path d="M21 7v6h-6" /><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13" /></SvgIcon>,
+            Save: (props) => <SvgIcon {...props}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></SvgIcon>,
+            Chrome: (props) => <SvgIcon {...props}><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="4" /><line x1="21.17" y1="8" x2="12" y2="8" /><line x1="3.95" y1="6.06" x2="8.54" y2="14" /><line x1="10.88" y1="21.94" x2="15.46" y2="14" /></SvgIcon>,
+            ArrowLeft: (props) => <SvgIcon {...props}><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></SvgIcon>,
+            ArrowRight: (props) => <SvgIcon {...props}><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></SvgIcon>,
+            X: (props) => <SvgIcon {...props}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></SvgIcon>,
+            Search: (props) => <SvgIcon {...props}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></SvgIcon>,
+            Volume2: (props) => <SvgIcon {...props}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07" /></SvgIcon>,
+            VolumeX: (props) => <SvgIcon {...props}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><line x1="23" y1="9" x2="17" y2="15" /><line x1="17" y1="9" x2="23" y2="15" /></SvgIcon>,
+            SkipBack: (props) => <SvgIcon {...props}><polygon points="19 20 9 12 19 4 19 20" /><line x1="5" y1="19" x2="5" y2="5" /></SvgIcon>,
+            SkipForward: (props) => <SvgIcon {...props}><polygon points="5 4 15 12 5 20 5 4" /><line x1="19" y1="5" x2="19" y2="19" /></SvgIcon>,
+            Play: (props) => <SvgIcon {...props}><polygon points="5 3 19 12 5 21 5 3" /></SvgIcon>,
+            Command: (props) => <SvgIcon {...props}><path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-3-3z" /></SvgIcon>,
+            Grid: (props) => <SvgIcon {...props}><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></SvgIcon>,
+            Layout: (props) => <SvgIcon {...props}><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="9" y1="21" x2="9" y2="9" /></SvgIcon>,
+            Layers: (props) => <SvgIcon {...props}><polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" /></SvgIcon>,
+            Terminal: (props) => <SvgIcon {...props}><polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" /></SvgIcon>,
+            Wifi: (props) => <SvgIcon {...props}><path d="M5 12.55a11 11 0 0 1 14.08 0" /><path d="M1.42 9a16 16 0 0 1 21.16 0" /><path d="M8.53 16.11a6 6 0 0 1 6.95 0" /><line x1="12" y1="20" x2="12.01" y2="20" /></SvgIcon>,
+            WifiOff: (props) => <SvgIcon {...props}><line x1="1" y1="1" x2="23" y2="23" /><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" /><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" /><path d="M10.71 5.05A16 16 0 0 1 22.58 9" /><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88" /><path d="M8.53 16.11a6 6 0 0 1 6.95 0" /><line x1="12" y1="20" x2="12.01" y2="20" /></SvgIcon>,
+            Check: (props) => <SvgIcon {...props}><polyline points="20 6 9 17 4 12" /></SvgIcon>,
+            Palette: (props) => <SvgIcon {...props}><circle cx="13.5" cy="6.5" r=".5" /><circle cx="17.5" cy="10.5" r=".5" /><circle cx="8.5" cy="7.5" r=".5" /><circle cx="6.5" cy="12.5" r=".5" /><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.093 0-.678.5-1.25 1.25-1.25H16c2.75 0 5-2.25 5-5 0-3.867-4.029-7-9-7Z" /></SvgIcon>
+        };
+
+        // アイコンを安全に表示するコンポーネント
+        const SafeIcon = ({ icon, size = 24, className = "" }) => {
+            const IconComponent = Icons[icon];
+            if (!IconComponent) {
+                return <div style={{ width: size, height: size, background: 'rgba(255,255,255,0.2)', borderRadius: '4px' }} className={className} />;
+            }
+            return <IconComponent size={size} className={className} />;
+        };
+
+        // 初期データ設定
+        const INITIAL_MODES = {
+            productivity: {
+                id: 'productivity',
+                name: '編集・作業',
+                icon: 'Command',
+                color: 'text-emerald-400',
+                buttons: [
+                    { id: 'copy', label: 'Copy', sub: 'Ctrl+C', icon: 'Copy', color: 'bg-blue-600' },
+                    { id: 'paste', label: 'Paste', sub: 'Ctrl+V', icon: 'Clipboard', color: 'bg-blue-600' },
+                    { id: 'cut', label: 'Cut', sub: 'Ctrl+X', icon: 'Scissors', color: 'bg-slate-600' },
+                    { id: 'save', label: 'Save', sub: 'Ctrl+S', icon: 'Save', color: 'bg-emerald-600' },
+                    { id: 'undo', label: 'Undo', sub: 'Ctrl+Z', icon: 'Undo', color: 'bg-slate-600' },
+                    { id: 'redo', label: 'Redo', sub: 'Ctrl+Y', icon: 'Redo', color: 'bg-slate-600' },
+                ]
+            },
+            browser: {
+                id: 'browser',
+                name: 'Chrome操作',
+                icon: 'Chrome',
+                color: 'text-orange-400',
+                buttons: [
+                    { id: 'prev_tab', label: '前のタブ', sub: 'Ctrl+Shift+Tab', icon: 'ArrowLeft', color: 'bg-orange-600' },
+                    { id: 'next_tab', label: '次のタブ', sub: 'Ctrl+Tab', icon: 'ArrowRight', color: 'bg-orange-600' },
+                    { id: 'new_tab', label: '新規タブ', sub: 'Ctrl+T', icon: 'Layout', color: 'bg-slate-600' },
+                    { id: 'close_tab', label: 'タブ閉じる', sub: 'Ctrl+W', icon: 'X', color: 'bg-red-600' },
+                    { id: 'reopen_tab', label: 'タブ復元', sub: 'Ctrl+Sh+T', icon: 'Undo', color: 'bg-slate-600' },
+                    { id: 'focus_bar', label: '検索バー', sub: 'Ctrl+L', icon: 'Search', color: 'bg-slate-600' },
+                ]
+            },
+            media: {
+                id: 'media',
+                name: 'メディア',
+                icon: 'Play',
+                color: 'text-pink-400',
+                buttons: [
+                    { id: 'play_pause', label: '再生/停止', sub: 'Space', icon: 'Play', color: 'bg-pink-600' },
+                    { id: 'mute', label: 'ミュート', sub: 'M', icon: 'VolumeX', color: 'bg-slate-600' },
+                    { id: 'vol_down', label: '音量 -', sub: '↓', icon: 'Volume2', color: 'bg-slate-600' },
+                    { id: 'vol_up', label: '音量 +', sub: '↑', icon: 'Volume2', color: 'bg-slate-600' },
+                    { id: 'skip_back', label: '-10秒', sub: '←', icon: 'SkipBack', color: 'bg-slate-600' },
+                    { id: 'skip_fwd', label: '+10秒', sub: '→', icon: 'SkipForward', color: 'bg-slate-600' },
+                ]
+            },
+            system: {
+                id: 'system',
+                name: 'システム',
+                icon: 'Monitor',
+                color: 'text-blue-400',
+                buttons: [
+                    { id: 'task_view', label: 'アプリ切替', sub: 'Alt+Tab', icon: 'Layers', color: 'bg-indigo-600' },
+                    { id: 'desktop', label: 'デスクトップ', sub: 'Win+D', icon: 'Monitor', color: 'bg-indigo-600' },
+                    { id: 'start', label: 'Start', sub: 'Win', icon: 'Grid', color: 'bg-slate-600' },
+                    { id: 'lock', label: 'Lock PC', sub: 'Win+L', icon: 'Command', color: 'bg-red-800' },
+                ]
+            }
+        };
+
+        // 利用可能なカラーパレット
+        const COLOR_PALETTE = [
+            'bg-slate-600',
+            'bg-red-600',
+            'bg-orange-600',
+            'bg-amber-600',
+            'bg-yellow-600',
+            'bg-lime-600',
+            'bg-emerald-600',
+            'bg-teal-600',
+            'bg-cyan-600',
+            'bg-sky-600',
+            'bg-blue-600',
+            'bg-indigo-600',
+            'bg-violet-600',
+            'bg-purple-600',
+            'bg-fuchsia-600',
+            'bg-pink-600',
+            'bg-rose-600'
+        ];
+
+        function App() {
+            const [connected, setConnected] = useState(false);
+            const [currentMode, setCurrentMode] = useState('productivity');
+            const [modes, setModes] = useState(INITIAL_MODES);
+            const [isEditing, setIsEditing] = useState(false);
+            const [logs, setLogs] = useState(['システム準備完了...']);
+            const [lastCommand, setLastCommand] = useState(null);
+            
+            const logsEndRef = useRef(null);
+
+            // ログの自動スクロール
+            useEffect(() => {
+                if (logsEndRef.current) {
+                    logsEndRef.current.scrollIntoView({ behavior: "smooth" });
                 }
-                return btn;
-            });
-            mode.buttons = buttons;
-            newModes[modeId] = mode;
-            return newModes;
-        });
-        
-        if (typeof navigator !== 'undefined' && navigator.vibrate) {
-            navigator.vibrate([30, 30, 30]);
-        }
-    };
+            }, [logs]);
 
-    const handleButtonClick = (btn) => {
-        if (isEditing) {
-            cycleButtonColor(currentMode, btn.id);
-            return;
-        }
+            const addLog = (message) => {
+                const time = new Date().toLocaleTimeString('ja-JP', { hour12: false });
+                setLogs(prev => [...prev.slice(-4), `[${time}] ${message}`]);
+            };
 
-        if (!connected) {
-            addLog("エラー: 未接続です。右上のボタンで接続してください。");
-            if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([50, 50, 50]);
-            return;
-        }
+            const toggleConnection = () => {
+                if (connected) {
+                    setConnected(false);
+                    addLog("切断しました");
+                } else {
+                    addLog("Bluetoothデバイスを検索中...");
+                    setTimeout(() => {
+                        setConnected(true);
+                        addLog("PC (DESKTOP-X86) に接続しました");
+                    }, 1200);
+                }
+            };
 
-        setLastCommand(btn.id);
-        addLog(`送信: ${btn.sub} (${btn.label})`);
-        
-        if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(30);
-        setTimeout(() => setLastCommand(null), 200);
-    };
+            const cycleButtonColor = (modeId, btnId) => {
+                setModes(prevModes => {
+                    const newModes = { ...prevModes };
+                    const mode = { ...newModes[modeId] };
+                    const buttons = mode.buttons.map(btn => {
+                        if (btn.id === btnId) {
+                            const currentColorIndex = COLOR_PALETTE.indexOf(btn.color);
+                            const nextColorIndex = (currentColorIndex + 1) % COLOR_PALETTE.length;
+                            return { ...btn, color: COLOR_PALETTE[nextColorIndex] };
+                        }
+                        return btn;
+                    });
+                    mode.buttons = buttons;
+                    newModes[modeId] = mode;
+                    return newModes;
+                });
+                
+                if (typeof navigator !== 'undefined' && navigator.vibrate) {
+                    navigator.vibrate([30, 30, 30]);
+                }
+            };
 
-    const CurrentButtons = modes[currentMode].buttons;
-    const CurrentModeIcon = modes[currentMode].icon;
+            const handleButtonClick = (btn) => {
+                if (isEditing) {
+                    cycleButtonColor(currentMode, btn.id);
+                    return;
+                }
 
-    return (
-        <div className={`touch-manipulation flex flex-col h-screen bg-slate-900 text-slate-100 font-sans transition-colors duration-500 ${isEditing ? 'border-4 border-yellow-500/50 rounded-lg' : ''}`}>
-            <style>{styles}</style>
+                if (!connected) {
+                    addLog("エラー: 未接続です。右上のボタンで接続してください。");
+                    if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([50, 50, 50]);
+                    return;
+                }
 
-            {/* Header */}
-            <header className="flex justify-between items-center p-4 glass-panel z-10 shrink-0">
-                <div className="flex items-center gap-2">
-                    <div className={`w-3 h-3 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-                    <h1 className="font-bold text-lg tracking-wider neon-text">
-                        {isEditing ? <span className="text-yellow-400">EDITING...</span> : "REMOTE DECK"}
-                    </h1>
-                </div>
-                <div className="flex gap-2">
-                    <button
-                        onClick={() => setIsEditing(!isEditing)}
-                        className={`p-2 rounded-full transition-all flex items-center justify-center ${
-                            isEditing 
-                            ? 'bg-yellow-500 text-slate-900 shadow-[0_0_15px_rgba(234,179,8,0.5)]' 
-                            : 'bg-slate-700 text-slate-400 hover:text-white'
-                        }`}
-                    >
-                        <SafeIcon icon={isEditing ? "Check" : "Palette"} size={18} />
-                    </button>
+                setLastCommand(btn.id);
+                addLog(`送信: ${btn.sub} (${btn.label})`);
+                
+                if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(30);
+                setTimeout(() => setLastCommand(null), 200);
+            };
 
-                    <button 
-                        onClick={toggleConnection}
-                        className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${
-                            connected 
-                            ? 'bg-slate-800 text-green-400 border border-green-500/30' 
-                            : 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.5)] active:bg-blue-700'
-                        }`}
-                    >
-                        <SafeIcon icon={connected ? "Wifi" : "WifiOff"} size={14} />
-                        {connected ? 'LINKED' : 'CONNECT'}
-                    </button>
-                </div>
-            </header>
+            const CurrentButtons = modes[currentMode].buttons;
+            const CurrentModeIcon = modes[currentMode].icon;
 
-            {/* Main Control Area */}
-            <main className="flex-1 overflow-y-auto p-4 flex flex-col justify-center">
-                <div className="text-center mb-6">
-                    <span className={`inline-flex items-center gap-2 px-4 py-1 rounded-full bg-slate-800 border border-slate-700 text-sm ${modes[currentMode].color}`}>
-                        <SafeIcon icon={CurrentModeIcon} size={18} />
-                        {modes[currentMode].name} Mode
-                    </span>
-                    {isEditing && (
-                        <p className="text-yellow-400 text-xs mt-2 animate-pulse">
-                            ボタンをタップして色を変更
-                        </p>
-                    )}
-                </div>
+            return (
+                <div className={`touch-manipulation flex flex-col h-screen bg-slate-900 text-slate-100 font-sans transition-colors duration-500 ${isEditing ? 'border-4 border-yellow-500/50 rounded-lg' : ''}`}>
+                    {/* Header */}
+                    <header className="flex justify-between items-center p-4 glass-panel z-10 shrink-0">
+                        <div className="flex items-center gap-2">
+                            <div className={`w-3 h-3 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                            <h1 className="font-bold text-lg tracking-wider neon-text">
+                                {isEditing ? <span className="text-yellow-400">EDITING...</span> : "REMOTE DECK"}
+                            </h1>
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setIsEditing(!isEditing)}
+                                className={`p-2 rounded-full transition-all flex items-center justify-center ${
+                                    isEditing 
+                                    ? 'bg-yellow-500 text-slate-900 shadow-[0_0_15px_rgba(234,179,8,0.5)]' 
+                                    : 'bg-slate-700 text-slate-400 hover:text-white'
+                                }`}
+                            >
+                                <SafeIcon icon={isEditing ? "Check" : "Palette"} size={18} />
+                            </button>
 
-                <div className="grid grid-cols-2 gap-4 max-w-md mx-auto w-full">
-                    {CurrentButtons.map((btn) => (
-                        <button
-                            key={btn.id}
-                            onClick={() => handleButtonClick(btn)}
-                            className={`
-                                btn-active relative group overflow-hidden
-                                ${btn.color} 
-                                h-28 rounded-2xl flex flex-col items-center justify-center gap-2
-                                shadow-lg transition-all duration-100
-                                ${lastCommand === btn.id ? 'brightness-125 scale-95' : 'hover:brightness-110'}
-                                ${isEditing ? 'ring-2 ring-white/50 cursor-pointer' : ''}
-                            `}
-                        >
-                            <div className="text-white drop-shadow-md">
-                                <SafeIcon icon={btn.icon} size={24} />
-                            </div>
-                            <div className="text-center">
-                                <div className="font-bold text-lg leading-tight">{btn.label}</div>
-                                <div className="text-xs text-white/70 font-mono mt-1">{btn.sub}</div>
-                            </div>
-                            
+                            <button 
+                                onClick={toggleConnection}
+                                className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${
+                                    connected 
+                                    ? 'bg-slate-800 text-green-400 border border-green-500/30' 
+                                    : 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.5)] active:bg-blue-700'
+                                }`}
+                            >
+                                <SafeIcon icon={connected ? "Wifi" : "WifiOff"} size={14} />
+                                {connected ? 'LINKED' : 'CONNECT'}
+                            </button>
+                        </div>
+                    </header>
+
+                    {/* Main Control Area */}
+                    <main className="flex-1 overflow-y-auto p-4 flex flex-col justify-center">
+                        <div className="text-center mb-6">
+                            <span className={`inline-flex items-center gap-2 px-4 py-1 rounded-full bg-slate-800 border border-slate-700 text-sm ${modes[currentMode].color}`}>
+                                <SafeIcon icon={CurrentModeIcon} size={18} />
+                                {modes[currentMode].name} Mode
+                            </span>
                             {isEditing && (
-                                <div className="absolute top-2 right-2 bg-black/30 rounded-full p-1">
-                                    <SafeIcon icon="Palette" size={12} className="text-white/80" />
-                                </div>
+                                <p className="text-yellow-400 text-xs mt-2 animate-pulse">
+                                    ボタンをタップして色を変更
+                                </p>
                             )}
+                        </div>
 
-                            <div className="absolute inset-0 bg-white/10 opacity-0 group-active:opacity-100 transition-opacity" />
-                        </button>
-                    ))}
-                </div>
-            </main>
+                        <div className="grid grid-cols-2 gap-4 max-w-md mx-auto w-full">
+                            {CurrentButtons.map((btn) => (
+                                <button
+                                    key={btn.id}
+                                    onClick={() => handleButtonClick(btn)}
+                                    className={`
+                                        btn-active relative group overflow-hidden
+                                        ${btn.color} 
+                                        h-28 rounded-2xl flex flex-col items-center justify-center gap-2
+                                        shadow-lg transition-all duration-100
+                                        ${lastCommand === btn.id ? 'brightness-125 scale-95' : 'hover:brightness-110'}
+                                        ${isEditing ? 'ring-2 ring-white/50 cursor-pointer' : ''}
+                                    `}
+                                >
+                                    <div className="text-white drop-shadow-md">
+                                        <SafeIcon icon={btn.icon} size={24} />
+                                    </div>
+                                    <div className="text-center">
+                                        <div className="font-bold text-lg leading-tight">{btn.label}</div>
+                                        <div className="text-xs text-white/70 font-mono mt-1">{btn.sub}</div>
+                                    </div>
+                                    
+                                    {isEditing && (
+                                        <div className="absolute top-2 right-2 bg-black/30 rounded-full p-1">
+                                            <SafeIcon icon="Palette" size={12} className="text-white/80" />
+                                        </div>
+                                    )}
 
-            {/* Mode Switcher Footer */}
-            <nav className="glass-panel p-2 shrink-0">
-                <div className="flex justify-between items-center max-w-md mx-auto">
-                    {Object.values(modes).map((mode) => (
-                        <button
-                            key={mode.id}
-                            onClick={() => setCurrentMode(mode.id)}
-                            className={`
-                                flex flex-col items-center justify-center p-2 w-full rounded-xl transition-all
-                                ${currentMode === mode.id ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'}
-                            `}
-                        >
-                            <div className={currentMode === mode.id ? mode.color : ''}>
-                                <SafeIcon icon={mode.icon} size={18} />
-                            </div>
-                            <span className="text-[10px] mt-1 font-medium">{mode.name}</span>
-                        </button>
-                    ))}
-                </div>
-            </nav>
+                                    <div className="absolute inset-0 bg-white/10 opacity-0 group-active:opacity-100 transition-opacity" />
+                                </button>
+                            ))}
+                        </div>
+                    </main>
 
-            {/* Terminal / Log Area */}
-            <div className="bg-black text-green-500 p-3 font-mono text-xs border-t border-slate-800 h-32 overflow-y-auto shrink-0">
-                <div className="flex items-center gap-2 mb-2 text-slate-500">
-                    <SafeIcon icon="Terminal" size={12} />
-                    <span>System Log</span>
+                    {/* Mode Switcher Footer */}
+                    <nav className="glass-panel p-2 shrink-0">
+                        <div className="flex justify-between items-center max-w-md mx-auto">
+                            {Object.values(modes).map((mode) => (
+                                <button
+                                    key={mode.id}
+                                    onClick={() => setCurrentMode(mode.id)}
+                                    className={`
+                                        flex flex-col items-center justify-center p-2 w-full rounded-xl transition-all
+                                        ${currentMode === mode.id ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'}
+                                    `}
+                                >
+                                    <div className={currentMode === mode.id ? mode.color : ''}>
+                                        <SafeIcon icon={mode.icon} size={18} />
+                                    </div>
+                                    <span className="text-[10px] mt-1 font-medium">{mode.name}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </nav>
+
+                    {/* Terminal / Log Area */}
+                    <div className="bg-black text-green-500 p-3 font-mono text-xs border-t border-slate-800 h-32 overflow-y-auto shrink-0">
+                        <div className="flex items-center gap-2 mb-2 text-slate-500">
+                            <SafeIcon icon="Terminal" size={12} />
+                            <span>System Log</span>
+                        </div>
+                        {logs.map((log, i) => (
+                            <div key={i} className="mb-1 opacity-80">{'>'} {log}</div>
+                        ))}
+                        <div ref={logsEndRef} />
+                    </div>
                 </div>
-                {logs.map((log, i) => (
-                    <div key={i} className="mb-1 opacity-80">{'>'} {log}</div>
-                ))}
-                <div ref={logsEndRef} />
-            </div>
-        </div>
-    );
-}
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
