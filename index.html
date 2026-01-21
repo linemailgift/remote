@@ -12,7 +12,7 @@
     <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- QR Code Generator (Local) -->
+    <!-- QR Code Generator (Local Script) -->
     <script src="https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js" crossorigin></script>
 
     <!-- Firebase SDK (Modular) -->
@@ -58,7 +58,7 @@
 
     <style>
         body {
-            /* 背景色を変更: 深海のようなインディゴ〜ブラックのグラデーション */
+            /* 背景色: 深海のようなインディゴ〜ブラックのグラデーション */
             background: radial-gradient(circle at center, #172554 0%, #000000 100%);
             color: white;
             overflow: hidden;
@@ -121,7 +121,7 @@
 
     <script type="text/babel">
         const { useState, useEffect, useRef, useMemo } = React;
-        const APP_VERSION = "v11.0 (Instant QR)";
+        const APP_VERSION = "v12.0 (Stable QR)";
 
         // --- Icons (SVG) ---
         const SvgIcon = ({ children, size = 24, className = "" }) => (
@@ -269,7 +269,7 @@
             return (
                 <div className="flex flex-col items-center justify-center h-screen p-6 animate-fade-in-up text-center">
                     <div className="mb-10">
-                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-500/10 mb-4 animate-pulse-glow border border-blue-500/30">
+                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-500/10 mb-4 animate-pulse-border border border-blue-500/30">
                             <SafeIcon icon={isMobile ? "Smartphone" : "Monitor"} size={32} className="text-blue-400" />
                         </div>
                         <h1 className="text-3xl font-bold mb-2 neon-text tracking-tight">Smart Remote Deck</h1>
@@ -323,11 +323,13 @@
 
         const HostScreen = ({ onReset }) => {
             const [logs, setLogs] = useState(["Initializing..."]);
-            const [sessionId] = useState(() => crypto.randomUUID());
+            const [sessionId, setSessionId] = useState(null);
             const [status, setStatus] = useState('initializing'); // initializing, ready, connected
             const [qrDataUrl, setQrDataUrl] = useState(null);
-            
+            const sessionIdRef = useRef(null);
+
             // URL生成（余計なクエリパラメータを除去）
+            // origin + pathname に固定
             const getJoinUrl = (sid) => {
                 const base = `${window.location.origin}${window.location.pathname}`;
                 const url = new URL(base);
@@ -350,7 +352,11 @@
                         addLog("Authenticating...");
                         await window.fb.initAuth();
 
-                        const ref = getSessionRef(sessionId);
+                        const sid = crypto.randomUUID();
+                        setSessionId(sid);
+                        sessionIdRef.current = sid;
+
+                        const ref = getSessionRef(sid);
                         addLog("Creating session...");
                         await window.fb.setDoc(ref, { 
                             status: 'waiting', 
@@ -385,40 +391,48 @@
 
                 return () => { 
                     if(unsubscribe) unsubscribe(); 
-                    if(sessionId && window.fb) {
-                        window.fb.deleteDoc(getSessionRef(sessionId));
+                    if(sessionIdRef.current && window.fb) {
+                        window.fb.deleteDoc(getSessionRef(sessionIdRef.current));
                     }
                 };
-            }, [sessionId]);
+            }, []);
 
             // 2) sessionIdができたらQRをローカルで生成
+            // ライブラリ読み込み待機リトライ機能付き
             useEffect(() => {
-                const gen = async () => {
+                let attempts = 0;
+                const generate = async () => {
                     if (!sessionId) return;
+                    
+                    // ライブラリ読み込み待ちリトライ
                     if (!window.QRCode) {
-                        addLog("QR library not loaded");
+                        if (attempts < 10) {
+                            attempts++;
+                            setTimeout(generate, 200);
+                        } else {
+                            addLog("QR library failed to load");
+                        }
                         return;
                     }
+
                     try {
                         const joinUrl = getJoinUrl(sessionId);
-                        
-                        // 高密度でも読みやすい設定
-                        const dataUrl = await window.QRCode.toDataURL(joinUrl, {
-                            errorCorrectionLevel: 'M',
+                        const url = await window.QRCode.toDataURL(joinUrl, {
+                            width: 300,
                             margin: 2,
-                            width: 360,
+                            errorCorrectionLevel: 'M',
                             color: {
                                 dark: "#000000",
                                 light: "#FFFFFF"
                             }
                         });
-                        setQrDataUrl(dataUrl);
+                        setQrDataUrl(url);
                     } catch (e) {
-                        addLog(`QR gen failed: ${e.message}`);
                         console.error(e);
+                        addLog("QR Gen Error");
                     }
                 };
-                gen();
+                generate();
             }, [sessionId]);
 
             const handleCopyLink = async () => {
