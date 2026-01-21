@@ -56,8 +56,8 @@
 
     <style>
         body {
-            /* 背景色をリッチなグラデーションに変更 */
-            background: radial-gradient(circle at center, #1a1a1d 0%, #000000 100%);
+            /* 背景色を変更: 少し青みがかったダークグレーのグラデーション */
+            background: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
             color: white;
             overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -75,17 +75,17 @@
             transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .neon-text {
-            text-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+            text-shadow: 0 0 20px rgba(96, 165, 250, 0.4);
         }
         .glass-panel {
-            background: rgba(30, 30, 35, 0.7);
+            background: rgba(30, 41, 59, 0.7);
             backdrop-filter: blur(25px);
             -webkit-backdrop-filter: blur(25px);
             border: 1px solid rgba(255, 255, 255, 0.08);
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
         }
         .glass-panel-bottom {
-            background: rgba(30, 30, 35, 0.8);
+            background: rgba(30, 41, 59, 0.8);
             backdrop-filter: blur(25px);
             -webkit-backdrop-filter: blur(25px);
             border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -119,7 +119,7 @@
 
     <script type="text/babel">
         const { useState, useEffect, useRef, useMemo } = React;
-        const APP_VERSION = "v6.0.0 (QR Link)";
+        const APP_VERSION = "v7.0.0 (QR Fix)";
 
         // --- Icons (SVG) ---
         const SvgIcon = ({ children, size = 24, className = "" }) => (
@@ -390,32 +390,8 @@
                 return url.toString();
             };
 
-            // QRコードのURL (APIを使用)
-            const qrUrl = sessionId ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(getJoinUrl())}&color=50-130-246` : '';
-
-            const handleShare = async () => {
-                const url = getJoinUrl();
-                const shareData = {
-                    title: 'Smart Remote Deck',
-                    text: 'Connect to Mac',
-                    url: url
-                };
-
-                if (navigator.share) {
-                    try {
-                        await navigator.share(shareData);
-                        setLogs(p => ["Shared menu opened", ...p]);
-                    } catch (err) {
-                        // Share cancelled or failed
-                        setLogs(p => ["Share cancelled. Use QR Code.", ...p]);
-                        // Fallback to copy link
-                        handleCopyLink();
-                    }
-                } else {
-                    setLogs(p => ["Web Share not supported. Use QR Code.", ...p]);
-                    handleCopyLink();
-                }
-            };
+            // QRコードのURL (Standard API)
+            const qrUrl = sessionId ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(getJoinUrl())}` : '';
 
             const handleCopyLink = () => {
                 const url = getJoinUrl();
@@ -478,14 +454,6 @@
                                     )}
 
                                     <div className="flex gap-4">
-                                        <button 
-                                            onClick={handleShare}
-                                            className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-white py-2 px-4 rounded-full border border-zinc-700 transition-colors text-xs"
-                                        >
-                                            <SafeIcon icon="Share" size={14} />
-                                            <span>Share / AirDrop</span>
-                                        </button>
-                                        
                                         <button 
                                             onClick={handleCopyLink}
                                             className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-white py-2 px-4 rounded-full border border-zinc-700 transition-colors text-xs"
